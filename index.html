@@ -37,8 +37,14 @@
 
       <p class="note">Hay <b>un cañón en el centro de cada bobina</b>.</p>
 
-      <label>Nº de electrones <span id="numElectronsVal"></span>
-        <input id="numElectrons" type="range" min="4" max="80" step="1" value="24" />
+      <label>Límite de partículas (seguridad) <span id="numElectronsVal"></span>
+        <input id="numElectrons" type="range" min="500" max="20000" step="500" value="5000" />
+        <small>Acumulación ilimitada: la cámara arranca vacía y se llena sin tope
+        fijo. Este valor solo evita saturar el navegador.</small>
+      </label>
+
+      <label>Tasa de inyección (part/s) <span id="injectionRateVal"></span>
+        <input id="injectionRate" type="range" min="1" max="40" step="1" value="10" />
       </label>
 
       <label>Potencia del cañón <span id="cannonPowerVal"></span> kW

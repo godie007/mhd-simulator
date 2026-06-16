@@ -213,7 +213,7 @@ se cuenta como pérdida.
 
 ## 5. Inyección de energía: cañones y láseres
 
-### 5.1 Cañones de electrones
+### 5.1 Cañones de electrones e inyección acumulativa
 
 Hay **un cañón en el centro de cada bobina**. Cada electrón se inyecta desde
 $\mathbf p_i\cdot 0.96$ hacia el centro con una pequeña dispersión tangencial y
@@ -224,6 +224,22 @@ $$
 v_0 = v_{\text{ref}}\sqrt{\frac{P_c}{P_{\text{ref}}}}, \qquad
 v_{\text{ref}}=0.6,\quad P_{\text{ref}} = 2\ \text{kW}
 $$
+
+**Modelo acumulativo (generación de plasma).** La cámara **arranca vacía**. En
+cada paso los cañones inyectan partículas nuevas a una **tasa $\lambda$**
+(part/s); la acumulación es **ilimitada** (sin tope fijo, salvo un límite de
+seguridad de memoria):
+
+$$
+\text{inyectar } \big\lfloor a \big\rfloor \text{ partículas}, \qquad
+a \mathrel{+}= \lambda\,\Delta t \ \text{(acumulador)}
+$$
+
+Las partículas que escapan ($r\ge R$) se **eliminan para siempre** (no se
+reciclan; el almacenamiento es un array compacto con *swap-remove*). El número de
+partículas vivas $N_{\text{viva}}(t)$ **crece si el confinamiento las retiene** y
+se estabiliza en un **equilibrio** donde la tasa de escape iguala a $\lambda$: es
+una medida directa de cuánto plasma logra acumular el controlador.
 
 ### 5.2 Láseres (calentamiento del plasma)
 
@@ -280,16 +296,22 @@ electrones. La aptitud combina **contención + estabilidad + distribución**,
 penalizando pérdidas:
 
 $$
-\boxed{\;\mathcal{F} = \mathcal{S} \;+\; 0.30\,\mathcal{E} \;+\; 0.15\,\mathcal{D} \;-\; 0.40\,\frac{N_{\text{perd}}}{N_e}\;}
+\boxed{\;\mathcal{F} = \mathcal{S} \;+\; 0.30\,\mathcal{E} \;+\; 0.15\,\mathcal{D}\;}
 $$
 
-**Contención** (supervivencia + centralidad), promediada en el tiempo:
+**Acumulación / retención** (fracción de la capacidad confinada y centrada),
+promediada en el tiempo. Premia **acumular y retener** partículas; los escapes
+la reducen de forma implícita (bajan $N_{\text{vivas}}$), por lo que no hace
+falta un término de penalización aparte:
 
 $$
-\mathcal{S} = \frac{1}{T}\sum_{t=1}^{T} \frac{N_{\text{vivas}}(t)}{N_e}\Big(0.5 + 0.5\,\overline{c}(t)\Big),
+\mathcal{S} = \frac{1}{T}\sum_{t=1}^{T} \frac{N_{\text{vivas}}(t)}{N_{\text{inyectadas}}(t)}\Big(0.5 + 0.5\,\overline{c}(t)\Big),
 \qquad
 \overline{c}(t) = \Big\langle 1-\big(r/R\big)^2 \Big\rangle_{\text{vivas}}
 $$
+
+(la normalización por las **inyectadas** hace que $\mathcal{S}$ mida la *fracción
+retenida*, independiente de cualquier capacidad.)
 
 **Estabilidad** (poca fluctuación temporal del radio medio $\bar r$):
 
@@ -338,12 +360,14 @@ config (UI)
   └─► GA (Web Worker)
         para cada generación:
           para cada genoma:
-            Simulation(config, genoma)
+            Simulation(config, genoma)   [cámara vacía]
               repetir T pasos:
                 I_i(t)  = polifásico + PD            (§3.1)
                 B(r,t)  = Σ dipolos                  (§3.2)
                 v,x     = empuje de Boris            (§4)
                 láseres ► calientan (si ON)          (§5.2)
+                escapes ► se eliminan                (§5.1)
+                cañones ► inyectan (tasa λ)          (§5.1)
                 acumular métricas de fitness         (§6.2)
             fitness ► selección/cruce/mutación       (§6.3)
         postMessage(best genome) ──► hilo principal ──► render 3D (Three.js)

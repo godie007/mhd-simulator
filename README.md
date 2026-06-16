@@ -5,6 +5,8 @@ lanzados por **cañones**, sin que toquen el borde. Un **algoritmo genético**
 evoluciona, generación tras generación, los parámetros de cada bobina hasta
 mantener las partículas moviéndose cerca del centro.
 
+![Simulador en vivo: confinamiento de electrones, controles y evolución del AG](images/img1.png)
+
 > 📐 **Documentación técnica completa** (ecuaciones físicas y requisitos para una
 > implementación real): [`docs/DOCUMENTACION_TECNICA.md`](docs/DOCUMENTACION_TECNICA.md)
 
@@ -26,7 +28,15 @@ Luego abre <http://localhost:8000> en el navegador (Chrome/Firefox/Safari).
 - **Distribución de bobinas**: `auto` usa vértices de sólidos platónicos cuando
   el número coincide (4 tetraedro, 6 octaedro, 8 cubo, 12 icosaedro, 20
   dodecaedro); `fibonacci` reparte cualquier N de forma casi-uniforme.
-- **Nº de bobinas / cañones / electrones**: configurables y simétricos.
+- **Nº de bobinas**: configurable y simétrico (un cañón en el centro de cada una).
+- **Acumulación ilimitada**: la cámara **arranca vacía** y se va llenando — las
+  partículas son **acumulativas**: los cañones disparan continuamente, las que
+  escapan se pierden para siempre y las que se mantienen confinadas se suman, sin
+  tope fijo. El número se estabiliza en un **equilibrio físico** entre inyección
+  y escapes: cuanto mejor confina el controlador (o mayor la tasa de inyección),
+  más plasma acumula. El slider **Límite de partículas** es solo una salvaguarda
+  de memoria del navegador, no un tope físico.
+- **Tasa de inyección (part/s)**: ritmo al que los cañones disparan partículas nuevas.
 - **Potencia del cañón (kW)**: energía de inyección de los electrones. La rapidez
   inicial sale de `v₀ ∝ √P` (referencia: 2 kW → v₀ base).
 - **Nº de láseres / potencia (W)**: láseres en los **huecos entre tríos de

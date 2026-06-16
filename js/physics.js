@@ -347,38 +347,68 @@ export class Simulation {
     return out;
   }
 
+  // Límite de seguridad (no es un tope físico: la acumulación es "ilimitada",
+  // solo evita que el navegador se quede sin memoria). Por defecto muy alto.
+  get maxParticles() { return this.cfg.maxParticles ?? 100000; }
+
   reset(seed) {
-    const cfg = this.cfg;
     this.rng = makeRng(seed >>> 0);
-    const n = cfg.numElectrons;
-    this.pos = new Float64Array(n * 3);
-    this.vel = new Float64Array(n * 3);
-    this.alive = new Uint8Array(n);
-    this.life = new Float64Array(n);
-    for (let i = 0; i < n; i++) this.spawn(i);
+    // La cámara ARRANCA VACÍA. El almacenamiento es DINÁMICO: crece según se
+    // acumulan partículas (this.n = nº vivo, arrays compactos sin huecos).
+    this.cap = 128;
+    this.n = 0;
+    this.pos = new Float64Array(this.cap * 3);
+    this.vel = new Float64Array(this.cap * 3);
+    this.injAccum = 0;                 // acumulador de inyección
+    this.injected = 0;                 // total inyectado (estadística)
     this.t = 0;
-    this.prevMeanR = this.computeMeanR();
-    this.lost = 0;
+    this.prevMeanR = 0;
+    this.lost = 0;                     // total de escapes (acumulado)
     this.fitAccum = 0;
     this.steps = 0;
     // acumuladores para estabilidad/distribución
-    this.accMR = 0;       // Σ radio medio (por paso)
-    this.accMR2 = 0;      // Σ (radio medio)²  -> varianza temporal
-    this.accSpread = 0;   // Σ desviación radial de la nube (grosor)
+    this.accMR = 0;
+    this.accMR2 = 0;
+    this.accSpread = 0;
     this.statSteps = 0;
     this.updateLaserState();
   }
 
-  // Genera/recicla una partícula desde un cañón, disparada hacia el centro.
-  spawn(i) {
+  aliveCount() { return this.n; }
+
+  // Duplica la capacidad de los arrays cuando se llenan.
+  grow() {
+    const nc = Math.min(this.maxParticles, this.cap * 2);
+    if (nc === this.cap) return false;
+    const p = new Float64Array(nc * 3), v = new Float64Array(nc * 3);
+    p.set(this.pos); v.set(this.vel);
+    this.pos = p; this.vel = v; this.cap = nc;
+    return true;
+  }
+
+  // Inyecta partículas nuevas según la tasa de inyección (disparo continuo de
+  // los cañones). Acumulación sin tope salvo el límite de seguridad.
+  inject(dt) {
+    const rate = this.cfg.injectionRate ?? 8; // partículas por unidad de tiempo
+    this.injAccum += rate * dt;
+    while (this.injAccum >= 1) {
+      if (!this.spawn()) { this.injAccum = 0; break; } // alcanzado el límite
+      this.injected++;
+      this.injAccum -= 1;
+    }
+  }
+
+  // Genera una partícula nueva (la añade al final del array compacto) desde un
+  // cañón, disparada hacia el centro. Devuelve false si se alcanzó el límite.
+  spawn() {
+    if (this.n >= this.cap && !this.grow()) return false;
     const cfg = this.cfg;
+    const i = this.n;
     const c = this.cannons[(Math.floor(this.rng() * this.cannons.length)) % this.cannons.length];
     const r = cfg.R * 0.96;
-    // dirección hacia el centro + pequeña dispersión tangencial
     const inward = [-c[0], -c[1], -c[2]];
     const ilen = Math.hypot(inward[0], inward[1], inward[2]) || 1;
     inward[0] /= ilen; inward[1] /= ilen; inward[2] /= ilen;
-    // vector tangente arbitrario
     let tax = [0, 1, 0];
     if (Math.abs(inward[1]) > 0.9) tax = [1, 0, 0];
     const tx = [
@@ -403,19 +433,15 @@ export class Simulation {
     this.vel[i * 3] = (dir[0] / dl) * v0;
     this.vel[i * 3 + 1] = (dir[1] / dl) * v0;
     this.vel[i * 3 + 2] = (dir[2] / dl) * v0;
-    this.alive[i] = 1;
-    this.life[i] = 0;
+    this.n++;
+    return true;
   }
 
   computeMeanR() {
-    let s = 0, c = 0;
-    const n = this.cfg.numElectrons;
-    for (let i = 0; i < n; i++) {
-      if (!this.alive[i]) continue;
+    let s = 0;
+    for (let i = 0; i < this.n; i++)
       s += Math.hypot(this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2]);
-      c++;
-    }
-    return c ? s / c : 0;
+    return this.n ? s / this.n : 0;
   }
 
   // Campo B en un punto, suma de dipolos de todas las bobinas.
@@ -442,8 +468,9 @@ export class Simulation {
     out[0] = bx; out[1] = by; out[2] = bz;
   }
 
-  // Un paso de integración. onLost(i) opcional (modo vivo recicla; eval cuenta).
-  step(dt, onLost) {
+  // Un paso de integración: mueve las partículas, elimina las que escapan e
+  // inyecta nuevas desde los cañones (acumulación de plasma).
+  step(dt) {
     const cfg = this.cfg;
     const meanR = this.computeMeanR();
     const meanRdot = (meanR - this.prevMeanR) / dt;
@@ -452,11 +479,12 @@ export class Simulation {
 
     const B = [0, 0, 0];
     const qm = cfg.qm;
-    const n = cfg.numElectrons;
-    let centrality = 0, aliveCount = 0, sumR = 0, sumR2 = 0;
+    let centrality = 0, sumR = 0, sumR2 = 0;
 
-    for (let i = 0; i < n; i++) {
-      if (!this.alive[i]) continue;
+    // recorrido compacto con swap-remove: las que escapan se eliminan moviendo
+    // la última a su lugar (sin huecos), y se reprocesa esa posición.
+    let i = 0;
+    while (i < this.n) {
       const ix = i * 3;
       const px = this.pos[ix], py = this.pos[ix + 1], pz = this.pos[ix + 2];
       this.fieldAt(px, py, pz, B);
@@ -499,25 +527,33 @@ export class Simulation {
       }
       // posición
       const nx = px + vx * dt, ny = py + vy * dt, nz = pz + vz * dt;
-      this.vel[ix] = vx; this.vel[ix + 1] = vy; this.vel[ix + 2] = vz;
-      this.pos[ix] = nx; this.pos[ix + 1] = ny; this.pos[ix + 2] = nz;
-      this.life[i] += dt;
 
       const r = Math.hypot(nx, ny, nz);
       if (r >= cfg.R) {
-        // tocó / cruzó el borde: se pierde
-        this.alive[i] = 0;
-        this.lost++;
-        if (onLost) onLost(i);
+        // escapó: se elimina PARA SIEMPRE (swap con la última, sin reciclar)
+        const last = this.n - 1;
+        if (i !== last) {
+          this.pos[ix] = this.pos[last * 3]; this.pos[ix + 1] = this.pos[last * 3 + 1]; this.pos[ix + 2] = this.pos[last * 3 + 2];
+          this.vel[ix] = this.vel[last * 3]; this.vel[ix + 1] = this.vel[last * 3 + 1]; this.vel[ix + 2] = this.vel[last * 3 + 2];
+        }
+        this.n--; this.lost++;
+        // no incrementar i: reprocesar la partícula que se movió aquí
       } else {
+        this.vel[ix] = vx; this.vel[ix + 1] = vy; this.vel[ix + 2] = vz;
+        this.pos[ix] = nx; this.pos[ix + 1] = ny; this.pos[ix + 2] = nz;
         centrality += 1 - (r / cfg.R) * (r / cfg.R);
-        aliveCount++;
         sumR += r; sumR2 += r * r;
+        i++;
       }
     }
 
-    // acumulación de fitness por paso
-    const frac = aliveCount / n;
+    // inyección continua de partículas nuevas (acumulación de plasma)
+    this.inject(dt);
+
+    // acumulación de fitness por paso: fracción de las partículas INYECTADAS que
+    // se logra mantener confinada (premia acumular y retener; sin tope fijo).
+    const aliveCount = this.n;
+    const frac = this.injected > 0 ? aliveCount / this.injected : 0;
     const cent = aliveCount ? centrality / aliveCount : 0;
     this.fitAccum += frac * (0.5 + 0.5 * cent);
     // métricas de estabilidad/distribución (solo con nube viva)
@@ -532,29 +568,28 @@ export class Simulation {
   }
 
   fitness() {
-    const survival = this.steps ? this.fitAccum / this.steps : 0;
-    const lostPenalty = this.lost / this.cfg.numElectrons;
-    // ESTABILIDAD: poca fluctuación temporal del radio medio de la nube
+    // ACUMULACIÓN/RETENCIÓN: fracción media de la capacidad confinada y centrada.
+    const retention = this.steps ? this.fitAccum / this.steps : 0;
+    // ESTABILIDAD y DISTRIBUCIÓN de la nube acumulada
     let stability = 0, distribution = 0;
     if (this.statSteps > 0) {
       const mrAvg = this.accMR / this.statSteps;
       const varT = Math.max(0, this.accMR2 / this.statSteps - mrAvg * mrAvg);
       stability = Math.exp(-6 * Math.sqrt(varT));         // 1 = perfectamente estable
-      // DISTRIBUCIÓN: nube con grosor sano (ni colapsada ni difusa), centrada en ~0.25R
       const spreadAvg = this.accSpread / this.statSteps;
       const target = 0.25 * this.cfg.R;
       distribution = Math.exp(-Math.pow((spreadAvg - target) / (0.22 * this.cfg.R), 2));
-      // solo cuenta si la nube de hecho sobrevive la mayor parte del episodio
       const aliveFrac = this.statSteps / Math.max(1, this.steps);
       stability *= aliveFrac; distribution *= aliveFrac;
     }
-    return survival + 0.3 * stability + 0.15 * distribution - 0.4 * lostPenalty;
+    // La retención ya penaliza implícitamente los escapes (reducen el conteo).
+    return retention + 0.3 * stability + 0.15 * distribution;
   }
 }
 
-// Evalúa un genoma corriendo un episodio completo (sin reciclar partículas).
+// Evalúa un genoma corriendo un episodio completo (cámara vacía -> acumulación).
 export function evaluateGenome(genome, config) {
   const sim = new Simulation(config, genome);
-  for (let s = 0; s < config.episodeSteps; s++) sim.step(config.dt, null);
+  for (let s = 0; s < config.episodeSteps; s++) sim.step(config.dt);
   return sim.fitness();
 }

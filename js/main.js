@@ -13,7 +13,9 @@ function readConfig() {
   const s = (id) => document.getElementById(id).value;
   return {
     numCoils: Math.round(v('numCoils')),
-    numElectrons: Math.round(v('numElectrons')),
+    numElectrons: Math.round(v('numElectrons')),   // capacidad máxima del recipiente
+    maxParticles: Math.round(v('numElectrons')),
+    injectionRate: v('injectionRate'),             // partículas/seg que disparan los cañones
     populationSize: Math.round(v('population')),
     mutationRate: v('mutationRate'),
     mutationSigma: 0.18,
@@ -113,7 +115,7 @@ function buildScene(sim) {
   }
 
   // electrones (puntos con brillo aditivo)
-  const n = sim.cfg.numElectrons;
+  const n = sim.cfg.maxParticles ?? sim.cfg.numElectrons;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
   const mat = new THREE.PointsMaterial({
@@ -171,20 +173,21 @@ function buildCounter() {
     map: texture, transparent: true, depthTest: false, depthWrite: false,
   });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.7, 0.35, 1);
-  sprite.position.set(0, 0, 0);
-  sprite.renderOrder = 999; // siempre visible por encima de las partículas
+  sprite.scale.set(0.8, 0.4, 1);
+  // sobre la esfera, en el eje de rotación (queda fijo y no tapa la figura)
+  sprite.position.set(0, 1.5, 0);
+  sprite.renderOrder = 999;
   counter = { canvas, ctx, texture, sprite };
 }
 
-function drawCounter(confined, total) {
+function drawCounter(confined) {
   if (!counter) return;
-  if (counter.last === confined && counter.lastTotal === total) return; // sin cambios
-  counter.last = confined; counter.lastTotal = total;
+  if (counter.last === confined) return; // sin cambios
+  counter.last = confined;
   const { ctx, canvas, texture } = counter;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.textAlign = 'center';
-  // número grande
+  // número grande = partículas que quedan en confinamiento
   ctx.fillStyle = '#66e0ff';
   ctx.shadowColor = '#0a1a2a'; ctx.shadowBlur = 8;
   ctx.font = 'bold 72px -apple-system, Segoe UI, sans-serif';
@@ -193,7 +196,7 @@ function drawCounter(confined, total) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#9fb0c8';
   ctx.font = '22px -apple-system, Segoe UI, sans-serif';
-  ctx.fillText(`confinadas / ${total}`, canvas.width / 2, 104);
+  ctx.fillText('en confinamiento', canvas.width / 2, 104);
   texture.needsUpdate = true;
 }
 
@@ -220,16 +223,19 @@ function updateLive() {
   // varios subpasos por frame para fluidez
   const sub = 2;
   for (let s = 0; s < sub; s++) {
-    liveSim.step(liveSim.cfg.dt, (i) => liveSim.spawn(i)); // reciclar perdidos
+    liveSim.step(liveSim.cfg.dt); // los cañones inyectan; los escapes se pierden
   }
 
-  // actualizar puntos
+  // renderizar partículas vivas (array compacto 0..n-1, sin máscara alive)
+  if (!electronPoints) return;
   const pos = electronPoints.geometry.attributes.position.array;
-  for (let i = 0; i < liveSim.cfg.numElectrons; i++) {
+  const np = liveSim.n;
+  for (let i = 0; i < np; i++) {
     pos[i * 3] = liveSim.pos[i * 3];
     pos[i * 3 + 1] = liveSim.pos[i * 3 + 1];
     pos[i * 3 + 2] = liveSim.pos[i * 3 + 2];
   }
+  electronPoints.geometry.setDrawRange(0, np);
   electronPoints.geometry.attributes.position.needsUpdate = true;
 
   // colorear bobinas por corriente instantánea
@@ -243,13 +249,18 @@ function updateLive() {
   }
 
   // métricas en vivo
-  let inside = 0, sumR = 0;
-  for (let i = 0; i < liveSim.cfg.numElectrons; i++) {
-    if (liveSim.alive[i]) { inside++; sumR += Math.hypot(liveSim.pos[i*3], liveSim.pos[i*3+1], liveSim.pos[i*3+2]); }
+  // "confinadas" = partículas realmente retenidas dentro (radio < 0.9 R), no las
+  // recién inyectadas (~0.96 R) ni las que rozan el borde antes de escapar.
+  const confRadius = 0.9 * liveSim.cfg.R;
+  let inside = 0, confined = 0, sumR = 0;
+  for (let i = 0; i < liveSim.n; i++) {
+    const r = Math.hypot(liveSim.pos[i*3], liveSim.pos[i*3+1], liveSim.pos[i*3+2]);
+    inside++; sumR += r;
+    if (r < confRadius) confined++;
   }
-  document.getElementById('liveInside').textContent = `${inside}/${liveSim.cfg.numElectrons}`;
+  document.getElementById('liveInside').textContent = `${liveSim.n}`;
   document.getElementById('liveRadius').textContent = inside ? (sumR / inside / liveSim.cfg.R).toFixed(3) : '—';
-  drawCounter(inside, liveSim.cfg.numElectrons); // contador 3D dentro de la esfera
+  drawCounter(liveSim.n); // total acumulado en confinamiento (acumulación ilimitada)
   const onCount = liveSim.lasersOnCount ? liveSim.lasersOnCount() : 0;
   document.getElementById('liveLasers').textContent = `${onCount}/${liveSim.lasers.length}`;
 
@@ -363,7 +374,7 @@ function bindSlider(id) {
   const upd = () => { if (out) out.textContent = el.value; };
   el.addEventListener('input', upd); upd();
 }
-['numCoils','numElectrons','population','mutationRate','episodeSteps','cannonPower','numLasers','laserPower'].forEach(bindSlider);
+['numCoils','numElectrons','injectionRate','population','mutationRate','episodeSteps','cannonPower','numLasers','laserPower'].forEach(bindSlider);
 
 document.getElementById('btnStart').addEventListener('click', () => {
   if (!worker) initEvolution();
