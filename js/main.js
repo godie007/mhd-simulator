@@ -1,0 +1,356 @@
+// main.js — Escena 3D (Three.js), interfaz y simulación en vivo del mejor
+// genoma que va encontrando el algoritmo genético en el worker.
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Simulation, randomGenome, makeRng } from './physics.js';
+
+// ----------------------------------------------------------------------------
+// Configuración por defecto (la UI la sobreescribe).
+// ----------------------------------------------------------------------------
+function readConfig() {
+  const v = (id) => parseFloat(document.getElementById(id).value);
+  const s = (id) => document.getElementById(id).value;
+  return {
+    numCoils: Math.round(v('numCoils')),
+    numElectrons: Math.round(v('numElectrons')),
+    populationSize: Math.round(v('population')),
+    mutationRate: v('mutationRate'),
+    mutationSigma: 0.18,
+    episodeSteps: Math.round(v('episodeSteps')),
+    coilPreset: s('coilPreset'),
+    numLasers: Math.round(v('numLasers')),
+    // potencias reales -> unidades de simulación
+    cannonPowerKW: v('cannonPower'),       // kW (referencia 2 kW)
+    laserPowerW: v('laserPower'),          // W por láser (referencia 5 W)
+    laserPower: v('laserPower') * 0.2,     // 5 W -> 1.0 (calentamiento débil)
+    laserRadius: 0.12,
+    R: 1.0,
+    v0: 0.6 * Math.sqrt(v('cannonPower') / 2),  // 2 kW -> v0 = 0.6
+    dt: 0.02,
+    eps: 0.18,
+    kmag: 2.5,
+    qm: 1.0,
+    seed: 1,
+    gaSeed: (Math.random() * 1e9) >>> 0,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Escena
+// ----------------------------------------------------------------------------
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060a);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 100);
+camera.position.set(2.4, 1.6, 2.4);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0x404050, 1.5));
+const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+dl.position.set(3, 4, 2);
+scene.add(dl);
+
+let boundary, coilMeshes = [], cannonMeshes = [], electronPoints = null, laserLines = [];
+let group = new THREE.Group();
+scene.add(group);
+
+function buildScene(sim) {
+  // limpiar
+  group.clear();
+  coilMeshes = []; cannonMeshes = []; laserLines = [];
+
+  // frontera esférica
+  const sg = new THREE.SphereGeometry(sim.cfg.R, 32, 24);
+  const boundaryWire = new THREE.Mesh(
+    sg, new THREE.MeshBasicMaterial({ color: 0x2a6cff, wireframe: true, transparent: true, opacity: 0.12 })
+  );
+  group.add(boundaryWire);
+  const shell = new THREE.Mesh(
+    sg, new THREE.MeshPhongMaterial({ color: 0x1133aa, transparent: true, opacity: 0.05, side: THREE.BackSide })
+  );
+  group.add(shell);
+
+  // malla triangular entre bobinas vecinas (los láseres van en cada hueco)
+  if (sim.coilEdges && sim.coilEdges.length) {
+    const pts = [];
+    for (const [a, b] of sim.coilEdges) {
+      pts.push(new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(b[0], b[1], b[2]));
+    }
+    const eg = new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial({
+      color: 0x33507a, transparent: true, opacity: 0.3,
+    })));
+  }
+
+  // bobinas (toros orientados hacia el centro), color por corriente.
+  // El anillo llega hasta la mitad del camino a la bobina vecina => los campos
+  // cubren su espacio. El tubo escala con el anillo.
+  const ringR = sim.coilRingR || 0.07;
+  const torus = new THREE.TorusGeometry(ringR, Math.max(0.006, ringR * 0.05), 10, 36);
+  for (const c of sim.coils) {
+    const m = new THREE.Mesh(torus, new THREE.MeshPhongMaterial({
+      color: 0x888888, emissive: 0x000000, transparent: true, opacity: 0.85,
+    }));
+    m.position.set(c[0] * sim.cfg.R, c[1] * sim.cfg.R, c[2] * sim.cfg.R);
+    m.lookAt(0, 0, 0);
+    group.add(m);
+    coilMeshes.push(m);
+  }
+
+  // cañones (conos apuntando hacia adentro)
+  const cone = new THREE.ConeGeometry(0.05, 0.14, 12);
+  for (const c of sim.cannons) {
+    const m = new THREE.Mesh(cone, new THREE.MeshPhongMaterial({ color: 0xffaa33, emissive: 0x331a00 }));
+    m.position.set(c[0] * sim.cfg.R * 1.05, c[1] * sim.cfg.R * 1.05, c[2] * sim.cfg.R * 1.05);
+    m.lookAt(0, 0, 0);
+    m.rotateX(Math.PI / 2);
+    group.add(m);
+    cannonMeshes.push(m);
+  }
+
+  // electrones (puntos con brillo aditivo)
+  const n = sim.cfg.numElectrons;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0x66e0ff, size: 0.06, sizeAttenuation: true,
+    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  });
+  electronPoints = new THREE.Points(geo, mat);
+  group.add(electronPoints);
+
+  // láseres: haces desde la arista de la bobina hacia el centro
+  for (const L of sim.lasers) {
+    const geoL = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]),
+      new THREE.Vector3(0, 0, 0),
+    ]);
+    const line = new THREE.Line(geoL, new THREE.LineBasicMaterial({
+      color: 0xff3355, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    group.add(line);
+    laserLines.push(line);
+    // emisor en la arista
+    const emit = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff5577 })
+    );
+    emit.position.set(L.pos[0], L.pos[1], L.pos[2]);
+    group.add(emit);
+  }
+
+  // marcador del centro
+  const center = new THREE.Mesh(
+    new THREE.SphereGeometry(0.02, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  group.add(center);
+}
+
+// ----------------------------------------------------------------------------
+// Simulación en vivo
+// ----------------------------------------------------------------------------
+let liveSim = null;
+let cfg = readConfig();
+
+function newLiveSim() {
+  cfg = readConfig();
+  cfg.seed = (Math.random() * 1e9) >>> 0;
+  const g = randomGenome(cfg.numCoils, makeRng((Math.random() * 1e9) >>> 0));
+  liveSim = new Simulation({ ...cfg }, g);
+  buildScene(liveSim);
+  bestGenome = null;
+}
+
+let bestGenome = null;
+
+function updateLive() {
+  if (!liveSim) return;
+  if (bestGenome) liveSim.setGenome(bestGenome);
+  // varios subpasos por frame para fluidez
+  const sub = 2;
+  for (let s = 0; s < sub; s++) {
+    liveSim.step(liveSim.cfg.dt, (i) => liveSim.spawn(i)); // reciclar perdidos
+  }
+
+  // actualizar puntos
+  const pos = electronPoints.geometry.attributes.position.array;
+  for (let i = 0; i < liveSim.cfg.numElectrons; i++) {
+    pos[i * 3] = liveSim.pos[i * 3];
+    pos[i * 3 + 1] = liveSim.pos[i * 3 + 1];
+    pos[i * 3 + 2] = liveSim.pos[i * 3 + 2];
+  }
+  electronPoints.geometry.attributes.position.needsUpdate = true;
+
+  // colorear bobinas por corriente instantánea
+  for (let i = 0; i < coilMeshes.length; i++) {
+    const I = liveSim.currents[i] || 0;
+    const mag = Math.min(1, Math.abs(I) / 3);
+    const mat = coilMeshes[i].material;
+    if (I >= 0) mat.emissive.setRGB(mag, mag * 0.25, 0); // rojo/naranja
+    else mat.emissive.setRGB(0, mag * 0.4, mag);          // azul
+    mat.color.setRGB(0.3 + 0.5 * mag, 0.3, 0.3 + 0.5 * (I < 0 ? mag : 0));
+  }
+
+  // métricas en vivo
+  let inside = 0, sumR = 0;
+  for (let i = 0; i < liveSim.cfg.numElectrons; i++) {
+    if (liveSim.alive[i]) { inside++; sumR += Math.hypot(liveSim.pos[i*3], liveSim.pos[i*3+1], liveSim.pos[i*3+2]); }
+  }
+  document.getElementById('liveInside').textContent = `${inside}/${liveSim.cfg.numElectrons}`;
+  document.getElementById('liveRadius').textContent = inside ? (sumR / inside / liveSim.cfg.R).toFixed(3) : '—';
+
+  // pulso visual de los láseres
+  if (laserLines.length) {
+    const pulse = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(liveSim.t * 12));
+    for (const l of laserLines) l.material.opacity = pulse;
+  }
+
+  // panel de frecuencias por par (throttle)
+  frameCount++;
+  if (frameCount % 12 === 0) renderFreqPanel();
+}
+
+let frameCount = 0;
+function renderFreqPanel() {
+  if (!liveSim) return;
+  const params = liveSim.groupParams();
+  const fCommon = params.length ? params[0].f : 0;
+  const header = `<div class="freqHead">f común = <b>${fCommon.toFixed(2)} Hz</b> · desfase 60°</div>`;
+  const html = params.map((p, i) => {
+    const pair = p.coils.length === 2 ? `bobinas ${p.coils[0] + 1}↔${p.coils[1] + 1}` : `bobina ${p.coils[0] + 1}`;
+    const w = Math.min(100, (p.A / 3) * 100); // amplitud 0..3 -> 0..100%
+    // corriente instantánea de la primera bobina del par (signo/intensidad)
+    const I = liveSim.currents[p.coils[0]] || 0;
+    const on = Math.min(1, Math.abs(I) / 3);
+    return `<div class="freqRow">
+      <span class="fLbl">P${i + 1} <em>${pair}</em></span>
+      <span class="fBar"><i style="width:${w}%"></i></span>
+      <span class="fHz" style="opacity:${0.4 + 0.6 * on}">${p.phaseDeg}°</span>
+    </div>`;
+  }).join('');
+  document.getElementById('freqList').innerHTML = header + html;
+}
+
+// ----------------------------------------------------------------------------
+// Worker + AG
+// ----------------------------------------------------------------------------
+let worker = null;
+let history = []; // [{gen,best,avg}]
+let evolving = false;
+
+function startWorker() {
+  if (worker) worker.terminate();
+  worker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'gen') {
+      const s = m.stats;
+      bestGenome = Float64Array.from(s.bestGenome);
+      history.push({ gen: s.generation, best: s.best, avg: s.avg, allBest: s.allTimeBest });
+      if (history.length > 600) history.shift();
+      document.getElementById('genNum').textContent = s.generation;
+      document.getElementById('bestFit').textContent = s.allTimeBest.toFixed(4);
+      document.getElementById('avgFit').textContent = s.avg.toFixed(4);
+      drawChart();
+    }
+  };
+}
+
+function initEvolution() {
+  history = [];
+  bestGenome = null;
+  const c = readConfig();
+  // mantener la config viva sincronizada con la del AG
+  liveSim = new Simulation({ ...c }, randomGenome(c.numCoils, makeRng(c.seed)));
+  buildScene(liveSim);
+  startWorker();
+  worker.postMessage({ type: 'init', config: c });
+}
+
+// ----------------------------------------------------------------------------
+// Gráfica de fitness
+// ----------------------------------------------------------------------------
+const chart = document.getElementById('chart');
+const cctx = chart.getContext('2d');
+function drawChart() {
+  const w = chart.width, h = chart.height;
+  cctx.clearRect(0, 0, w, h);
+  cctx.fillStyle = '#0a0c14'; cctx.fillRect(0, 0, w, h);
+  if (history.length < 2) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const p of history) { lo = Math.min(lo, p.avg, p.best); hi = Math.max(hi, p.best, p.allBest); }
+  if (hi - lo < 1e-6) hi = lo + 1;
+  const pad = 6;
+  const X = (i) => pad + (i / (history.length - 1)) * (w - 2 * pad);
+  const Y = (v) => h - pad - ((v - lo) / (hi - lo)) * (h - 2 * pad);
+  const line = (key, color) => {
+    cctx.strokeStyle = color; cctx.lineWidth = 1.5; cctx.beginPath();
+    history.forEach((p, i) => { const x = X(i), y = Y(p[key]); i ? cctx.lineTo(x, y) : cctx.moveTo(x, y); });
+    cctx.stroke();
+  };
+  line('avg', '#5577aa');
+  line('best', '#66e0ff');
+  line('allBest', '#7CFF6B');
+}
+
+// ----------------------------------------------------------------------------
+// UI
+// ----------------------------------------------------------------------------
+function bindSlider(id) {
+  const el = document.getElementById(id);
+  const out = document.getElementById(id + 'Val');
+  const upd = () => { if (out) out.textContent = el.value; };
+  el.addEventListener('input', upd); upd();
+}
+['numCoils','numElectrons','population','mutationRate','episodeSteps','cannonPower','numLasers','laserPower'].forEach(bindSlider);
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (!worker) initEvolution();
+  evolving = true;
+  worker.postMessage({ type: 'start' });
+  document.getElementById('status').textContent = 'Evolucionando…';
+});
+document.getElementById('btnPause').addEventListener('click', () => {
+  evolving = false;
+  if (worker) worker.postMessage({ type: 'pause' });
+  document.getElementById('status').textContent = 'En pausa';
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  evolving = false;
+  initEvolution();
+  document.getElementById('status').textContent = 'Reiniciado — pulsa Iniciar';
+  document.getElementById('genNum').textContent = '0';
+  document.getElementById('bestFit').textContent = '—';
+  document.getElementById('avgFit').textContent = '—';
+});
+
+// ----------------------------------------------------------------------------
+// Bucle de render
+// ----------------------------------------------------------------------------
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / r.height;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  updateLive();
+  controls.update();
+  group.rotation.y += 0.0008;
+  renderer.render(scene, camera);
+}
+
+// arranque
+initEvolution();
+resize();
+animate();
+document.getElementById('status').textContent = 'Listo — pulsa Iniciar evolución';

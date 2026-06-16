@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Confinamiento de electrones · Algoritmo genético</title>
+<link rel="stylesheet" href="css/style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <h1>Confinamiento por bobinas</h1>
+    <p class="sub">Algoritmo genético que aprende a contener electrones dentro de una esfera de bobinas.</p>
+
+    <div class="card">
+      <h2>Configuración</h2>
+
+      <label>Distribución de bobinas
+        <select id="coilPreset">
+          <option value="auto">Auto (platónico si coincide)</option>
+          <option value="fibonacci">Fibonacci (cualquier N)</option>
+        </select>
+      </label>
+
+      <label>Nº de bobinas <span id="numCoilsVal"></span>
+        <input id="numCoils" type="range" min="4" max="42" step="1" value="12" />
+        <small>4=tetraedro · 6=octaedro · 8=cubo · 12=icosaedro · 20=dodecaedro</small>
+      </label>
+
+      <p class="note">Hay <b>un cañón en el centro de cada bobina</b>.</p>
+
+      <label>Nº de electrones <span id="numElectronsVal"></span>
+        <input id="numElectrons" type="range" min="4" max="80" step="1" value="24" />
+      </label>
+
+      <label>Potencia del cañón <span id="cannonPowerVal"></span> kW
+        <input id="cannonPower" type="range" min="0.5" max="10" step="0.5" value="2" />
+        <small>Energía con la que se inyectan los electrones (v₀ ∝ √P).</small>
+      </label>
+
+      <label>Nº de láseres (huecos entre 3 bobinas) <span id="numLasersVal"></span>
+        <input id="numLasers" type="range" min="0" max="40" step="1" value="12" />
+        <small>Cada láser va en el hueco entre un trío de bobinas vecinas y calienta los electrones.</small>
+      </label>
+
+      <label>Potencia de cada láser <span id="laserPowerVal"></span> W
+        <input id="laserPower" type="range" min="0" max="50" step="1" value="5" />
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>Algoritmo genético</h2>
+      <label>Tamaño de población <span id="populationVal"></span>
+        <input id="population" type="range" min="10" max="120" step="2" value="40" />
+      </label>
+      <label>Tasa de mutación <span id="mutationRateVal"></span>
+        <input id="mutationRate" type="range" min="0.02" max="0.5" step="0.01" value="0.15" />
+      </label>
+      <label>Pasos por episodio <span id="episodeStepsVal"></span>
+        <input id="episodeSteps" type="range" min="150" max="1200" step="50" value="500" />
+      </label>
+    </div>
+
+    <div class="btns">
+      <button id="btnStart" class="primary">▶ Iniciar evolución</button>
+      <button id="btnPause">⏸ Pausar</button>
+      <button id="btnReset">↺ Reiniciar</button>
+    </div>
+    <p class="hint">Cambia la configuración y pulsa <b>Reiniciar</b> para aplicarla.</p>
+  </aside>
+
+  <main id="stage">
+    <canvas id="view"></canvas>
+    <div id="hud">
+      <div class="metric"><span>Estado</span><b id="status">…</b></div>
+      <div class="metric"><span>Generación</span><b id="genNum">0</b></div>
+      <div class="metric"><span>Mejor fitness</span><b id="bestFit">—</b></div>
+      <div class="metric"><span>Fitness medio</span><b id="avgFit">—</b></div>
+      <div class="metric"><span>Contenidos</span><b id="liveInside">—</b></div>
+      <div class="metric"><span>Radio medio</span><b id="liveRadius">—</b></div>
+    </div>
+    <div id="freqPanel">
+      <h3>Sistema polifásico (pares de bobinas)</h3>
+      <div id="freqList"></div>
+    </div>
+
+    <div id="chartBox">
+      <div class="legend">
+        <span class="l1">media</span><span class="l2">mejor gen.</span><span class="l3">mejor histórico</span>
+      </div>
+      <canvas id="chart" width="320" height="120"></canvas>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
