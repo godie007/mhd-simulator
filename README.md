@@ -7,8 +7,12 @@ mantener las partículas moviéndose cerca del centro.
 
 ![Simulador en vivo: confinamiento de electrones, controles y evolución del AG](images/img1.png)
 
-> 📐 **Documentación técnica completa** (ecuaciones físicas y requisitos para una
+> 📐 **Documentación técnica** (ecuaciones físicas y requisitos para una
 > implementación real): [`docs/DOCUMENTACION_TECNICA.md`](docs/DOCUMENTACION_TECNICA.md)
+>
+> 🎓 **Tesis doctoral** (modelo completo, optimización, análisis del escenario que
+> sostiene >600 partículas y hoja de ruta experimental):
+> [`docs/TESIS_DOCTORAL.md`](docs/TESIS_DOCTORAL.md)
 
 ## Cómo ejecutar
 
