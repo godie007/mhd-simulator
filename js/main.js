@@ -123,7 +123,8 @@ function buildScene(sim) {
   electronPoints = new THREE.Points(geo, mat);
   group.add(electronPoints);
 
-  // láseres: haces desde la arista de la bobina hacia el centro
+  // láseres: haces desde el hueco entre 3 bobinas hacia el centro.
+  // El AG enciende/apaga cada uno; el render refleja su estado en updateLive.
   for (const L of sim.lasers) {
     const geoL = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]),
@@ -134,14 +135,14 @@ function buildScene(sim) {
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     group.add(line);
-    laserLines.push(line);
-    // emisor en la arista
+    // emisor en el hueco
     const emit = new THREE.Mesh(
       new THREE.SphereGeometry(0.018, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xff5577 })
     );
     emit.position.set(L.pos[0], L.pos[1], L.pos[2]);
     group.add(emit);
+    laserLines.push({ line, emit });
   }
 
   // marcador del centro
@@ -150,6 +151,50 @@ function buildScene(sim) {
     new THREE.MeshBasicMaterial({ color: 0xffffff })
   );
   group.add(center);
+
+  // contador 3D de partículas confinadas (sprite que mira a la cámara)
+  buildCounter();
+  group.add(counter.sprite);
+}
+
+// ----------------------------------------------------------------------------
+// Contador 3D dentro de la esfera (textura en canvas sobre un sprite)
+// ----------------------------------------------------------------------------
+let counter = null;
+function buildCounter() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({
+    map: texture, transparent: true, depthTest: false, depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.7, 0.35, 1);
+  sprite.position.set(0, 0, 0);
+  sprite.renderOrder = 999; // siempre visible por encima de las partículas
+  counter = { canvas, ctx, texture, sprite };
+}
+
+function drawCounter(confined, total) {
+  if (!counter) return;
+  if (counter.last === confined && counter.lastTotal === total) return; // sin cambios
+  counter.last = confined; counter.lastTotal = total;
+  const { ctx, canvas, texture } = counter;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.textAlign = 'center';
+  // número grande
+  ctx.fillStyle = '#66e0ff';
+  ctx.shadowColor = '#0a1a2a'; ctx.shadowBlur = 8;
+  ctx.font = 'bold 72px -apple-system, Segoe UI, sans-serif';
+  ctx.fillText(String(confined), canvas.width / 2, 70);
+  // etiqueta
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#9fb0c8';
+  ctx.font = '22px -apple-system, Segoe UI, sans-serif';
+  ctx.fillText(`confinadas / ${total}`, canvas.width / 2, 104);
+  texture.needsUpdate = true;
 }
 
 // ----------------------------------------------------------------------------
@@ -161,7 +206,7 @@ let cfg = readConfig();
 function newLiveSim() {
   cfg = readConfig();
   cfg.seed = (Math.random() * 1e9) >>> 0;
-  const g = randomGenome(cfg.numCoils, makeRng((Math.random() * 1e9) >>> 0));
+  const g = randomGenome(cfg.numCoils, cfg.numLasers | 0, makeRng((Math.random() * 1e9) >>> 0));
   liveSim = new Simulation({ ...cfg }, g);
   buildScene(liveSim);
   bestGenome = null;
@@ -204,11 +249,21 @@ function updateLive() {
   }
   document.getElementById('liveInside').textContent = `${inside}/${liveSim.cfg.numElectrons}`;
   document.getElementById('liveRadius').textContent = inside ? (sumR / inside / liveSim.cfg.R).toFixed(3) : '—';
+  drawCounter(inside, liveSim.cfg.numElectrons); // contador 3D dentro de la esfera
+  const onCount = liveSim.lasersOnCount ? liveSim.lasersOnCount() : 0;
+  document.getElementById('liveLasers').textContent = `${onCount}/${liveSim.lasers.length}`;
 
-  // pulso visual de los láseres
+  // láseres encendidos (AG): brillan y pulsan; apagados: tenues
   if (laserLines.length) {
-    const pulse = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(liveSim.t * 12));
-    for (const l of laserLines) l.material.opacity = pulse;
+    const pulse = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(liveSim.t * 12));
+    for (let k = 0; k < laserLines.length; k++) {
+      const on = liveSim.laserOn && liveSim.laserOn[k];
+      const { line, emit } = laserLines[k];
+      line.material.opacity = on ? pulse : 0.04;
+      line.material.color.setHex(on ? 0xff3355 : 0x334455);
+      emit.material.color.setHex(on ? 0xff5577 : 0x334455);
+      emit.scale.setScalar(on ? 1 : 0.6);
+    }
   }
 
   // panel de frecuencias por par (throttle)
@@ -267,7 +322,7 @@ function initEvolution() {
   bestGenome = null;
   const c = readConfig();
   // mantener la config viva sincronizada con la del AG
-  liveSim = new Simulation({ ...c }, randomGenome(c.numCoils, makeRng(c.seed)));
+  liveSim = new Simulation({ ...c }, randomGenome(c.numCoils, c.numLasers | 0, makeRng(c.seed)));
   buildScene(liveSim);
   startWorker();
   worker.postMessage({ type: 'init', config: c });

@@ -5,6 +5,9 @@ lanzados por **cañones**, sin que toquen el borde. Un **algoritmo genético**
 evoluciona, generación tras generación, los parámetros de cada bobina hasta
 mantener las partículas moviéndose cerca del centro.
 
+> 📐 **Documentación técnica completa** (ecuaciones físicas y requisitos para una
+> implementación real): [`docs/DOCUMENTACION_TECNICA.md`](docs/DOCUMENTACION_TECNICA.md)
+
 ## Cómo ejecutar
 
 El proyecto usa módulos ES y un Web Worker, así que necesita servirse por HTTP
@@ -26,9 +29,11 @@ Luego abre <http://localhost:8000> en el navegador (Chrome/Firefox/Safari).
 - **Nº de bobinas / cañones / electrones**: configurables y simétricos.
 - **Potencia del cañón (kW)**: energía de inyección de los electrones. La rapidez
   inicial sale de `v₀ ∝ √P` (referencia: 2 kW → v₀ base).
-- **Nº de láseres / potencia (W)**: láseres en las **aristas del dodecaedro** que
-  inyectan energía (calientan el plasma) a los electrones que cruzan su haz
-  (referencia: 5 W cada uno; débil frente al cañón).
+- **Nº de láseres / potencia (W)**: láseres en los **huecos entre tríos de
+  bobinas** que inyectan energía (calientan el plasma) a los electrones que
+  cruzan su haz (referencia: 5 W cada uno; débil frente al cañón). El **AG decide
+  qué láseres encender o apagar** para estabilizar y distribuir mejor la nube;
+  en el HUD se ve cuántos están encendidos y en el 3D los apagados quedan tenues.
 - **Población / mutación / pasos por episodio**: parámetros del AG.
 
 ### Sistema polifásico (desfase de 60°)
@@ -73,11 +78,14 @@ instantánea.
 
 ## Algoritmo genético
 
-- **Genoma** (`⌈N/2⌉ + 3` genes): frecuencia común del sistema polifásico +
-  una amplitud por par + dos ganancias PD (`kp`, `kd`). La fase **no** se
-  evoluciona: es el desfase polifásico fijo de 60° por par.
-- **Fitness**: fracción de electrones contenidos y su centralidad a lo largo del
-  episodio, penalizando las pérdidas.
+- **Genoma** (`⌈N/2⌉ + 3 + nº_láseres` genes): frecuencia común del sistema
+  polifásico + una amplitud por par + dos ganancias PD (`kp`, `kd`) + un gen
+  on/off por láser (`>0.5` = encendido). La fase **no** se evoluciona: es el
+  desfase polifásico fijo de 60° por par.
+- **Fitness**: contención (electrones dentro y centrados) + **estabilidad** (poca
+  fluctuación temporal del radio medio de la nube) + **distribución** (nube con
+  grosor sano, ni colapsada ni difusa), penalizando las pérdidas. Esto empuja al
+  AG a elegir qué láseres encender para una nube de plasma estable y bien repartida.
 - **Operadores**: selección por torneo, cruce BLX-α, mutación gaussiana y
   elitismo (10%). Corre en un Web Worker para no congelar la interfaz.
 

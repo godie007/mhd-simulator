@@ -155,15 +155,17 @@ export function convexHullFaces(P) {
 }
 
 // ----------------------------------------------------------------------------
-// Sistema POLIFÁSICO con desfase de 60°.
+// Sistema POLIFÁSICO con desfase de 60° + control de láseres.
 // Todas las bobinas comparten una frecuencia común; la fase de cada par avanza
 // 60° (π/3), generando un campo magnético rotatorio. El genoma es:
-//   [ f_común,  A_0 .. A_{ng-1} (amplitud por par),  kp, kd ]
-// longitud = ng + 3, con ng = nº de pares. La fase NO se evoluciona: es
-// determinista (g·60°), como en una alimentación polifásica real.
+//   [ f_común,  A_0 .. A_{ng-1} (amplitud por par),  kp, kd,  L_0 .. L_{nl-1} ]
+// longitud = ng + 3 + nl. Cada gen L_k ∈ [0,1] enciende (>0.5) o apaga el láser
+// k: el AG decide qué láseres encender para estabilizar/distribuir la nube.
+// La fase NO se evoluciona: es determinista (g·60°).
 // ----------------------------------------------------------------------------
 export const PHASE_STEP = Math.PI / 3; // 60 grados
-export function geneCount(numCoils) { return groupCount(numCoils) + 3; }
+export const LASER_BASE = (numCoils) => groupCount(numCoils) + 3;
+export function geneCount(numCoils, numLasers = 0) { return groupCount(numCoils) + 3 + numLasers; }
 
 export const BOUNDS = {
   A: [0, 3],          // amplitud de corriente
@@ -171,24 +173,27 @@ export const BOUNDS = {
   phi: [0, Math.PI * 2],
   kp: [-8, 8],        // ganancia proporcional (deriva radial)
   kd: [-8, 8],        // ganancia derivativa (velocidad de deriva)
+  L: [0, 1],          // estado del láser (>0.5 = encendido)
 };
 
-export function makeBounds(numCoils) {
+export function makeBounds(numCoils, numLasers = 0) {
   const ng = groupCount(numCoils);
-  const lo = new Float64Array(geneCount(numCoils));
-  const hi = new Float64Array(geneCount(numCoils));
+  const lo = new Float64Array(geneCount(numCoils, numLasers));
+  const hi = new Float64Array(geneCount(numCoils, numLasers));
   // gen 0: frecuencia común del sistema polifásico
   lo[0] = BOUNDS.f[0]; hi[0] = BOUNDS.f[1];
   // genes 1..ng: amplitud por par
   for (let g = 0; g < ng; g++) { lo[1 + g] = BOUNDS.A[0]; hi[1 + g] = BOUNDS.A[1]; }
-  // genes finales: ganancias PD
+  // ganancias PD
   lo[ng + 1] = BOUNDS.kp[0]; hi[ng + 1] = BOUNDS.kp[1];
   lo[ng + 2] = BOUNDS.kd[0]; hi[ng + 2] = BOUNDS.kd[1];
+  // genes de láser (on/off)
+  for (let k = 0; k < numLasers; k++) { lo[ng + 3 + k] = BOUNDS.L[0]; hi[ng + 3 + k] = BOUNDS.L[1]; }
   return { lo, hi };
 }
 
-export function randomGenome(numCoils, rng) {
-  const { lo, hi } = makeBounds(numCoils);
+export function randomGenome(numCoils, numLasers, rng) {
+  const { lo, hi } = makeBounds(numCoils, numLasers);
   const g = new Float64Array(lo.length);
   for (let i = 0; i < g.length; i++) g[i] = lo[i] + rng() * (hi[i] - lo[i]);
   return g;
@@ -304,11 +309,25 @@ export class Simulation {
       const dl = Math.hypot(g[0], g[1], g[2]) || 1;
       this.lasers.push({ pos: [g[0], g[1], g[2]], dir: [-g[0] / dl, -g[1] / dl, -g[2] / dl] });
     }
+    this.laserBase = this.numGroups + 3;   // índice del primer gen de láser
+    this.laserOn = new Uint8Array(nl);     // estado on/off (lo decide el AG)
     this.vmax = config.v0 * 2.6; // tope de rapidez al que pueden calentar
     this.reset(config.seed >>> 0);
   }
 
-  setGenome(g) { this.genome = g; }
+  setGenome(g) { this.genome = g; if (this.laserOn) this.updateLaserState(); }
+
+  // Lee del genoma qué láseres están encendidos (gen > 0.5).
+  updateLaserState() {
+    for (let k = 0; k < this.lasers.length; k++)
+      this.laserOn[k] = this.genome[this.laserBase + k] > 0.5 ? 1 : 0;
+  }
+
+  lasersOnCount() {
+    let c = 0;
+    for (let k = 0; k < this.laserOn.length; k++) c += this.laserOn[k];
+    return c;
+  }
 
   // Parámetros (frecuencia, amplitud, fase) por grupo/par para mostrar en UI.
   groupParams() {
@@ -342,6 +361,12 @@ export class Simulation {
     this.lost = 0;
     this.fitAccum = 0;
     this.steps = 0;
+    // acumuladores para estabilidad/distribución
+    this.accMR = 0;       // Σ radio medio (por paso)
+    this.accMR2 = 0;      // Σ (radio medio)²  -> varianza temporal
+    this.accSpread = 0;   // Σ desviación radial de la nube (grosor)
+    this.statSteps = 0;
+    this.updateLaserState();
   }
 
   // Genera/recicla una partícula desde un cañón, disparada hacia el centro.
@@ -428,7 +453,7 @@ export class Simulation {
     const B = [0, 0, 0];
     const qm = cfg.qm;
     const n = cfg.numElectrons;
-    let centrality = 0, aliveCount = 0;
+    let centrality = 0, aliveCount = 0, sumR = 0, sumR2 = 0;
 
     for (let i = 0; i < n; i++) {
       if (!this.alive[i]) continue;
@@ -450,11 +475,13 @@ export class Simulation {
       vx = vx + (vpy * sz - vpz * sy);
       vy = vy + (vpz * sx - vpx * sz);
       vz = vz + (vpx * sy - vpy * sx);
-      // Láseres: si la partícula está en el haz, se calienta (gana rapidez)
+      // Láseres ENCENDIDOS (el AG decide cuáles): calientan a la partícula que
+      // cruza su haz, redistribuyendo energía para estabilizar la nube.
       if (this.lasers.length && cfg.laserPower > 0) {
         const lr2 = cfg.laserRadius * cfg.laserRadius;
         let boost = 0;
         for (let l = 0; l < this.lasers.length; l++) {
+          if (!this.laserOn[l]) continue; // láser apagado
           const o = this.lasers[l].pos, d = this.lasers[l].dir;
           const wx = px - o[0], wy = py - o[1], wz = pz - o[2];
           const proj = wx * d[0] + wy * d[1] + wz * d[2];
@@ -485,6 +512,7 @@ export class Simulation {
       } else {
         centrality += 1 - (r / cfg.R) * (r / cfg.R);
         aliveCount++;
+        sumR += r; sumR2 += r * r;
       }
     }
 
@@ -492,15 +520,35 @@ export class Simulation {
     const frac = aliveCount / n;
     const cent = aliveCount ? centrality / aliveCount : 0;
     this.fitAccum += frac * (0.5 + 0.5 * cent);
+    // métricas de estabilidad/distribución (solo con nube viva)
+    if (aliveCount > 0) {
+      const mr = sumR / aliveCount;                       // radio medio
+      const spread = Math.sqrt(Math.max(0, sumR2 / aliveCount - mr * mr)); // grosor radial
+      this.accMR += mr; this.accMR2 += mr * mr;
+      this.accSpread += spread; this.statSteps++;
+    }
     this.steps++;
     this.t += dt;
   }
 
   fitness() {
-    // 0..1 aprox: supervivencia + centralidad, penalizando pérdidas.
     const survival = this.steps ? this.fitAccum / this.steps : 0;
     const lostPenalty = this.lost / this.cfg.numElectrons;
-    return survival - 0.4 * lostPenalty;
+    // ESTABILIDAD: poca fluctuación temporal del radio medio de la nube
+    let stability = 0, distribution = 0;
+    if (this.statSteps > 0) {
+      const mrAvg = this.accMR / this.statSteps;
+      const varT = Math.max(0, this.accMR2 / this.statSteps - mrAvg * mrAvg);
+      stability = Math.exp(-6 * Math.sqrt(varT));         // 1 = perfectamente estable
+      // DISTRIBUCIÓN: nube con grosor sano (ni colapsada ni difusa), centrada en ~0.25R
+      const spreadAvg = this.accSpread / this.statSteps;
+      const target = 0.25 * this.cfg.R;
+      distribution = Math.exp(-Math.pow((spreadAvg - target) / (0.22 * this.cfg.R), 2));
+      // solo cuenta si la nube de hecho sobrevive la mayor parte del episodio
+      const aliveFrac = this.statSteps / Math.max(1, this.steps);
+      stability *= aliveFrac; distribution *= aliveFrac;
+    }
+    return survival + 0.3 * stability + 0.15 * distribution - 0.4 * lostPenalty;
   }
 }
 

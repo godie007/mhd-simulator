@@ -7,10 +7,11 @@ export class GA {
   constructor(config) {
     this.cfg = config;
     this.rng = makeRng((config.gaSeed ?? 12345) >>> 0);
-    this.bounds = makeBounds(config.numCoils);
+    const nl = config.numLasers | 0;
+    this.bounds = makeBounds(config.numCoils, nl);
     this.pop = [];
     const N = config.populationSize;
-    for (let i = 0; i < N; i++) this.pop.push(randomGenome(config.numCoils, this.rng));
+    for (let i = 0; i < N; i++) this.pop.push(randomGenome(config.numCoils, nl, this.rng));
     this.fitness = new Float64Array(N).fill(-Infinity);
     this.generation = 0;
     this.best = this.pop[0].slice();
