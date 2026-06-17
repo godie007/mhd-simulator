@@ -456,42 +456,68 @@ function syncCannonMax() {
   const coils = Math.round(parseFloat(document.getElementById('numCoils').value));
   const can = document.getElementById('numCannons');
   can.max = String(coils);
-  if (parseFloat(can.value) > coils) can.value = String(coils);
+  const changed = parseFloat(can.value) > coils;
+  if (changed) can.value = String(coils);
   const out = document.getElementById('numCannonsVal');
   if (out) out.textContent = can.value;
+  // Si cambió el valor, dispara el evento input para actualizar los cañones dinámicamente
+  if (changed) {
+    can.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }
 document.getElementById('numCoils').addEventListener('input', syncCannonMax);
 syncCannonMax();
 
 // Actualizar cañones en tiempo real cuando cambia el slider
 function updateCannonsLive() {
-  if (!liveSim || evolving) return; // no cambiar durante evolución
+  if (!liveSim || evolving) {
+    console.log('updateCannonsLive bloqueado: liveSim=', !!liveSim, 'evolving=', evolving);
+    return;
+  }
   const newNumCannons = Math.round(parseFloat(document.getElementById('numCannons').value));
-  if (liveSim.cannons.length === newNumCannons) return; // sin cambios
+  console.log('updateCannonsLive: newNumCannons=', newNumCannons, 'current=', liveSim.cannons.length);
+  if (liveSim.cannons.length === newNumCannons) {
+    console.log('Sin cambios en cañones');
+    return;
+  }
 
   // reconstruir simulación en vivo con nuevo nº de cañones
+  console.log('Reconstruyendo cañones...');
   const newCfg = readConfig();
+  console.log('Nueva configuración:', {numCoils: newCfg.numCoils, numCannons: newCfg.numCannons});
   const g = randomGenome(newCfg.numCoils, newCfg.numLasers | 0, makeRng((Math.random() * 1e9) >>> 0));
   liveSim = new Simulation({ ...newCfg }, g);
+  console.log('Nueva simulación creada con', liveSim.cannons.length, 'cañones', liveSim.cannons);
   buildCannons(liveSim);
-  group.remove(cannonGroup);
-  group.add(cannonGroup);
+  console.log('Cañones construidos, en el scene hay', cannonMeshes.length, 'meshes');
+  // No es necesario remover/agregar si ya se limpió y se rellenó el grupo
+  console.log('Grupo de cañones actualizado');
 }
 document.getElementById('numCannons').addEventListener('input', updateCannonsLive);
 
 // Actualizar láseres en tiempo real cuando cambia el slider
 function updateLasersLive() {
-  if (!liveSim || evolving) return; // no cambiar durante evolución
+  if (!liveSim || evolving) {
+    console.log('updateLasersLive bloqueado: liveSim=', !!liveSim, 'evolving=', evolving);
+    return;
+  }
   const newNumLasers = Math.round(parseFloat(document.getElementById('numLasers').value));
-  if (liveSim.lasers.length === newNumLasers) return; // sin cambios
+  console.log('updateLasersLive: newNumLasers=', newNumLasers, 'current=', liveSim.lasers.length);
+  if (liveSim.lasers.length === newNumLasers) {
+    console.log('Sin cambios en láseres');
+    return;
+  }
 
   // reconstruir simulación en vivo con nuevo nº de láseres
+  console.log('Reconstruyendo láseres...');
   const newCfg = readConfig();
   const g = randomGenome(newCfg.numCoils, newCfg.numLasers | 0, makeRng((Math.random() * 1e9) >>> 0));
   liveSim = new Simulation({ ...newCfg }, g);
+  console.log('Nueva simulación creada con', liveSim.lasers.length, 'láseres');
   buildLasers(liveSim);
-  group.remove(laserGroup);
-  group.add(laserGroup);
+  console.log('Láseres construidos, en el scene hay', laserLines.length, 'meshes');
+  // No es necesario remover/agregar si ya se limpió y se rellenó el grupo
+  console.log('Grupo de láseres actualizado');
 }
 document.getElementById('numLasers').addEventListener('input', updateLasersLive);
 
