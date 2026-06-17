@@ -483,6 +483,17 @@ document.getElementById('btnReset').addEventListener('click', () => {
   document.getElementById('avgFit').textContent = '—';
 });
 
+// Control de rotación automática
+let autoRotate = true;
+document.getElementById('btnAutoRotate').addEventListener('click', () => {
+  autoRotate = !autoRotate;
+  const btn = document.getElementById('btnAutoRotate');
+  btn.classList.toggle('active', autoRotate);
+  btn.textContent = autoRotate ? '🔄 Rotación automática' : '⏸ Rotación pausada';
+});
+// Activar por defecto
+document.getElementById('btnAutoRotate').classList.add('active');
+
 // ----------------------------------------------------------------------------
 // Bucle de render
 // ----------------------------------------------------------------------------
@@ -499,7 +510,7 @@ function animate() {
   requestAnimationFrame(animate);
   updateLive();
   controls.update();
-  group.rotation.y += 0.0008;
+  if (autoRotate) group.rotation.y += 0.0008;
   composer.render();
 }
 

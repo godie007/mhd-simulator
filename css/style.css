@@ -29,6 +29,8 @@ button {
   border-radius: 8px; padding: 10px; font-size: 13px; cursor: pointer; transition: .15s;
 }
 button:hover { background: #232f47; }
+button.active { background: #1a3a47; border-color: var(--accent); color: var(--accent); }
+button.active:hover { background: #1f4a5a; }
 button.primary { background: var(--accent); color: #02121a; font-weight: 700; border: none; }
 button.primary:hover { filter: brightness(1.1); }
 .hint { color: var(--muted); font-size: 11px; margin-top: 10px; line-height: 1.4; }
