@@ -228,8 +228,15 @@ function fillCurrents(out, genome, groupOf, numGroups, t, meanR, meanRdot) {
 // ----------------------------------------------------------------------------
 const geomCache = new Map();
 
-export function getGeometry(numCoils, R, preset) {
-  const key = `${numCoils}|${R}|${preset}`;
+export function getGeometry(numCoils, R, preset, numCannons) {
+  // El nº de cañones es INDEPENDIENTE del nº de bobinas. Si no se especifica, se
+  // usa uno por bobina (compatibilidad). Se distribuyen con la misma simetría
+  // (vértices platónicos si el conteo coincide, si no espiral de Fibonacci).
+  // nº de cañones acotado a [1, numCoils]: máximo proporcional = uno por bobina.
+  let nCannons = (numCannons | 0) > 0 ? (numCannons | 0) : numCoils;
+  if (nCannons > numCoils) nCannons = numCoils;
+  if (nCannons < 1) nCannons = 1;
+  const key = `${numCoils}|${R}|${preset}|${nCannons}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 
@@ -238,7 +245,14 @@ export function getGeometry(numCoils, R, preset) {
     const len = Math.hypot(p[0], p[1], p[2]) || 1;
     return [-p[0] / len, -p[1] / len, -p[2] / len];
   });
-  const cannons = coils.map((p) => [p[0], p[1], p[2]]); // un cañón por bobina
+  // Los cañones (fuentes de electrones) se colocan en el CENTRO de un subconjunto
+  // de bobinas, repartido uniformemente. Su número (1..numCoils) define cuántas
+  // fuentes hay: si nCannons < numCoils, NO todas las bobinas tienen cañón.
+  const cannons = [];
+  for (let k = 0; k < nCannons; k++) {
+    const idx = Math.floor((k * numCoils) / nCannons);
+    cannons.push([coils[idx][0], coils[idx][1], coils[idx][2]]);
+  }
   const grp = computeGroups(coils);
 
   // distancia al vecino más cercano (tamaño del anillo y suavizado del campo)
@@ -285,7 +299,7 @@ export class Simulation {
   constructor(config, genome) {
     this.cfg = config;
     this.setGenome(genome);
-    const geom = getGeometry(config.numCoils, config.R, config.coilPreset);
+    const geom = getGeometry(config.numCoils, config.R, config.coilPreset, config.numCannons);
     this.coils = geom.coils;
     this.coilDir = geom.coilDir;
     this.cannons = geom.cannons;

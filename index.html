@@ -35,7 +35,10 @@
         <small>4=tetraedro · 6=octaedro · 8=cubo · 12=icosaedro · 20=dodecaedro</small>
       </label>
 
-      <p class="note">Hay <b>un cañón en el centro de cada bobina</b>.</p>
+      <label>Nº de cañones <span id="numCannonsVal"></span>
+        <input id="numCannons" type="range" min="1" max="12" step="1" value="5" />
+        <small>De 1 hasta el nº de bobinas: define cuántas bobinas tienen cañón (fuente de electrones), repartidas uniformemente.</small>
+      </label>
 
       <label>Límite de partículas (seguridad) <span id="numElectronsVal"></span>
         <input id="numElectrons" type="range" min="500" max="20000" step="500" value="5000" />

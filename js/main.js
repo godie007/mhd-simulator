@@ -3,6 +3,10 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Simulation, randomGenome, makeRng } from './physics.js';
 
 // ----------------------------------------------------------------------------
@@ -13,6 +17,7 @@ function readConfig() {
   const s = (id) => document.getElementById(id).value;
   return {
     numCoils: Math.round(v('numCoils')),
+    numCannons: Math.round(v('numCannons')),        // cañones (independiente de bobinas)
     numElectrons: Math.round(v('numElectrons')),   // capacidad máxima del recipiente
     maxParticles: Math.round(v('numElectrons')),
     injectionRate: v('injectionRate'),             // partículas/seg que disparan los cañones
@@ -44,6 +49,9 @@ function readConfig() {
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Tone mapping filmico + bloom => brillo de plasma realista (no quema los colores).
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05060a);
 const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 100);
@@ -51,18 +59,99 @@ camera.position.set(2.4, 1.6, 2.4);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+// Postproceso: bloom en espacio de pantalla (coste fijo, no depende de Nº de
+// partículas). Hace que electrones y láseres brillen como plasma real.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.65, 0.45, 0.22);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// Textura de orbe suave (degradado radial) para que cada electrón sea un punto
+// de luz redondo y difuso en vez de un cuadrado.
+function makeParticleTexture() {
+  const s = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0.0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const particleTexture = makeParticleTexture();
+
 scene.add(new THREE.AmbientLight(0x404050, 1.5));
 const dl = new THREE.DirectionalLight(0xffffff, 1.0);
 dl.position.set(3, 4, 2);
 scene.add(dl);
 
 let boundary, coilMeshes = [], cannonMeshes = [], electronPoints = null, laserLines = [];
+let laserGroup = new THREE.Group();
 let group = new THREE.Group();
 scene.add(group);
+
+let cannonGroup = new THREE.Group();
+
+function buildCannons(sim) {
+  // limpiar solo los cañones
+  cannonGroup.clear();
+  cannonMeshes = [];
+
+  // cañones = fuentes de electrones. Verde brillante (distinto del naranja de las
+  // bobinas y el cian de los electrones) y sobresalen de la esfera, para que su
+  // número se vea y se cuente con claridad. Solo aparecen donde hay cañón.
+  const cone = new THREE.ConeGeometry(0.07, 0.2, 14);
+  for (const c of sim.cannons) {
+    const m = new THREE.Mesh(cone, new THREE.MeshPhongMaterial({
+      color: 0x3dff95, emissive: 0x0c4a2c, emissiveIntensity: 1.3,
+    }));
+    m.position.set(c[0] * sim.cfg.R * 1.12, c[1] * sim.cfg.R * 1.12, c[2] * sim.cfg.R * 1.12);
+    m.lookAt(0, 0, 0);
+    m.rotateX(Math.PI / 2);
+    cannonGroup.add(m);
+    cannonMeshes.push(m);
+  }
+}
+
+function buildLasers(sim) {
+  // limpiar solo los láseres
+  laserGroup.clear();
+  laserLines = [];
+
+  // láseres: haces desde el hueco entre 3 bobinas hacia el centro.
+  // El AG enciende/apaga cada uno; el render refleja su estado en updateLive.
+  for (const L of sim.lasers) {
+    const geoL = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]),
+      new THREE.Vector3(0, 0, 0),
+    ]);
+    const line = new THREE.Line(geoL, new THREE.LineBasicMaterial({
+      color: 0xff3355, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    laserGroup.add(line);
+    // emisor en el hueco
+    const emit = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff5577 })
+    );
+    emit.position.set(L.pos[0], L.pos[1], L.pos[2]);
+    laserGroup.add(emit);
+    laserLines.push({ line, emit });
+  }
+}
 
 function buildScene(sim) {
   // limpiar
   group.clear();
+  cannonGroup.clear();
+  laserGroup.clear();
   coilMeshes = []; cannonMeshes = []; laserLines = [];
 
   // frontera esférica
@@ -103,49 +192,26 @@ function buildScene(sim) {
     coilMeshes.push(m);
   }
 
-  // cañones (conos apuntando hacia adentro)
-  const cone = new THREE.ConeGeometry(0.05, 0.14, 12);
-  for (const c of sim.cannons) {
-    const m = new THREE.Mesh(cone, new THREE.MeshPhongMaterial({ color: 0xffaa33, emissive: 0x331a00 }));
-    m.position.set(c[0] * sim.cfg.R * 1.05, c[1] * sim.cfg.R * 1.05, c[2] * sim.cfg.R * 1.05);
-    m.lookAt(0, 0, 0);
-    m.rotateX(Math.PI / 2);
-    group.add(m);
-    cannonMeshes.push(m);
-  }
+  // construir cañones
+  buildCannons(sim);
+  group.add(cannonGroup);
 
-  // electrones (puntos con brillo aditivo)
+  // electrones (orbes de luz; color por rapidez => mapa de calor del plasma)
   const n = sim.cfg.maxParticles ?? sim.cfg.numElectrons;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
   const mat = new THREE.PointsMaterial({
-    color: 0x66e0ff, size: 0.06, sizeAttenuation: true,
-    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+    size: 0.05, sizeAttenuation: true, map: particleTexture,
+    vertexColors: true, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false,
   });
   electronPoints = new THREE.Points(geo, mat);
   group.add(electronPoints);
 
-  // láseres: haces desde el hueco entre 3 bobinas hacia el centro.
-  // El AG enciende/apaga cada uno; el render refleja su estado en updateLive.
-  for (const L of sim.lasers) {
-    const geoL = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]),
-      new THREE.Vector3(0, 0, 0),
-    ]);
-    const line = new THREE.Line(geoL, new THREE.LineBasicMaterial({
-      color: 0xff3355, transparent: true, opacity: 0.5,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    group.add(line);
-    // emisor en el hueco
-    const emit = new THREE.Mesh(
-      new THREE.SphereGeometry(0.018, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xff5577 })
-    );
-    emit.position.set(L.pos[0], L.pos[1], L.pos[2]);
-    group.add(emit);
-    laserLines.push({ line, emit });
-  }
+  // construir láseres
+  buildLasers(sim);
+  group.add(laserGroup);
 
   // marcador del centro
   const center = new THREE.Mesh(
@@ -226,17 +292,34 @@ function updateLive() {
     liveSim.step(liveSim.cfg.dt); // los cañones inyectan; los escapes se pierden
   }
 
-  // renderizar partículas vivas (array compacto 0..n-1, sin máscara alive)
+  // Un solo recorrido: posición + color por rapidez (azul frío → blanco caliente)
+  // + radio medio para el HUD. Array compacto 0..n-1, sin máscara alive.
   if (!electronPoints) return;
-  const pos = electronPoints.geometry.attributes.position.array;
+  const g = electronPoints.geometry;
+  const posA = g.attributes.position.array;
+  const colA = g.attributes.color.array;
   const np = liveSim.n;
+  const Rb = liveSim.cfg.R;
+  const vlo = liveSim.cfg.v0 * 0.7;
+  const vspan = ((liveSim.vmax || liveSim.cfg.v0 * 2.6) - vlo) || 1;
+  let sumR = 0;
   for (let i = 0; i < np; i++) {
-    pos[i * 3] = liveSim.pos[i * 3];
-    pos[i * 3 + 1] = liveSim.pos[i * 3 + 1];
-    pos[i * 3 + 2] = liveSim.pos[i * 3 + 2];
+    const ix = i * 3;
+    const px = liveSim.pos[ix], py = liveSim.pos[ix + 1], pz = liveSim.pos[ix + 2];
+    posA[ix] = px; posA[ix + 1] = py; posA[ix + 2] = pz;
+    const sp = Math.hypot(liveSim.vel[ix], liveSim.vel[ix + 1], liveSim.vel[ix + 2]);
+    let ts = (sp - vlo) / vspan; ts = ts < 0 ? 0 : ts > 1 ? 1 : ts;
+    colA[ix] = 0.2 + 0.8 * ts * ts;   // R sube con la energía cinética
+    colA[ix + 1] = 0.55 + 0.45 * ts;  // G
+    colA[ix + 2] = 1.0 - 0.35 * ts;   // B domina en frío (azul)
+    sumR += Math.hypot(px, py, pz);
   }
-  electronPoints.geometry.setDrawRange(0, np);
-  electronPoints.geometry.attributes.position.needsUpdate = true;
+  g.setDrawRange(0, np);
+  g.attributes.position.needsUpdate = true;
+  g.attributes.color.needsUpdate = true;
+  // subir a GPU solo el rango vivo (no los 20k del buffer)
+  if (g.attributes.position.updateRange) g.attributes.position.updateRange.count = np * 3;
+  if (g.attributes.color.updateRange) g.attributes.color.updateRange.count = np * 3;
 
   // colorear bobinas por corriente instantánea
   for (let i = 0; i < coilMeshes.length; i++) {
@@ -248,19 +331,10 @@ function updateLive() {
     mat.color.setRGB(0.3 + 0.5 * mag, 0.3, 0.3 + 0.5 * (I < 0 ? mag : 0));
   }
 
-  // métricas en vivo
-  // "confinadas" = partículas realmente retenidas dentro (radio < 0.9 R), no las
-  // recién inyectadas (~0.96 R) ni las que rozan el borde antes de escapar.
-  const confRadius = 0.9 * liveSim.cfg.R;
-  let inside = 0, confined = 0, sumR = 0;
-  for (let i = 0; i < liveSim.n; i++) {
-    const r = Math.hypot(liveSim.pos[i*3], liveSim.pos[i*3+1], liveSim.pos[i*3+2]);
-    inside++; sumR += r;
-    if (r < confRadius) confined++;
-  }
-  document.getElementById('liveInside').textContent = `${liveSim.n}`;
-  document.getElementById('liveRadius').textContent = inside ? (sumR / inside / liveSim.cfg.R).toFixed(3) : '—';
-  drawCounter(liveSim.n); // total acumulado en confinamiento (acumulación ilimitada)
+  // métricas en vivo (radio medio ya acumulado en el bucle anterior)
+  document.getElementById('liveInside').textContent = `${np}`;
+  document.getElementById('liveRadius').textContent = np ? (sumR / np / Rb).toFixed(3) : '—';
+  drawCounter(np); // total acumulado en confinamiento (acumulación ilimitada)
   const onCount = liveSim.lasersOnCount ? liveSim.lasersOnCount() : 0;
   document.getElementById('liveLasers').textContent = `${onCount}/${liveSim.lasers.length}`;
 
@@ -374,7 +448,52 @@ function bindSlider(id) {
   const upd = () => { if (out) out.textContent = el.value; };
   el.addEventListener('input', upd); upd();
 }
-['numCoils','numElectrons','injectionRate','population','mutationRate','episodeSteps','cannonPower','numLasers','laserPower'].forEach(bindSlider);
+['numCoils','numCannons','numElectrons','injectionRate','population','mutationRate','episodeSteps','cannonPower','numLasers','laserPower'].forEach(bindSlider);
+
+// El nº máximo de cañones es proporcional al nº de bobinas (1 .. numCoils):
+// el tope del slider sigue al de bobinas y se recorta el valor si lo excede.
+function syncCannonMax() {
+  const coils = Math.round(parseFloat(document.getElementById('numCoils').value));
+  const can = document.getElementById('numCannons');
+  can.max = String(coils);
+  if (parseFloat(can.value) > coils) can.value = String(coils);
+  const out = document.getElementById('numCannonsVal');
+  if (out) out.textContent = can.value;
+}
+document.getElementById('numCoils').addEventListener('input', syncCannonMax);
+syncCannonMax();
+
+// Actualizar cañones en tiempo real cuando cambia el slider
+function updateCannonsLive() {
+  if (!liveSim || evolving) return; // no cambiar durante evolución
+  const newNumCannons = Math.round(parseFloat(document.getElementById('numCannons').value));
+  if (liveSim.cannons.length === newNumCannons) return; // sin cambios
+
+  // reconstruir simulación en vivo con nuevo nº de cañones
+  const newCfg = readConfig();
+  const g = randomGenome(newCfg.numCoils, newCfg.numLasers | 0, makeRng((Math.random() * 1e9) >>> 0));
+  liveSim = new Simulation({ ...newCfg }, g);
+  buildCannons(liveSim);
+  group.remove(cannonGroup);
+  group.add(cannonGroup);
+}
+document.getElementById('numCannons').addEventListener('input', updateCannonsLive);
+
+// Actualizar láseres en tiempo real cuando cambia el slider
+function updateLasersLive() {
+  if (!liveSim || evolving) return; // no cambiar durante evolución
+  const newNumLasers = Math.round(parseFloat(document.getElementById('numLasers').value));
+  if (liveSim.lasers.length === newNumLasers) return; // sin cambios
+
+  // reconstruir simulación en vivo con nuevo nº de láseres
+  const newCfg = readConfig();
+  const g = randomGenome(newCfg.numCoils, newCfg.numLasers | 0, makeRng((Math.random() * 1e9) >>> 0));
+  liveSim = new Simulation({ ...newCfg }, g);
+  buildLasers(liveSim);
+  group.remove(laserGroup);
+  group.add(laserGroup);
+}
+document.getElementById('numLasers').addEventListener('input', updateLasersLive);
 
 document.getElementById('btnStart').addEventListener('click', () => {
   if (!worker) initEvolution();
@@ -402,6 +521,7 @@ document.getElementById('btnReset').addEventListener('click', () => {
 function resize() {
   const r = canvas.getBoundingClientRect();
   renderer.setSize(r.width, r.height, false);
+  composer.setSize(r.width, r.height);
   camera.aspect = r.width / r.height;
   camera.updateProjectionMatrix();
 }
@@ -412,7 +532,7 @@ function animate() {
   updateLive();
   controls.update();
   group.rotation.y += 0.0008;
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 // arranque
