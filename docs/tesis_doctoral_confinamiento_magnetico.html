@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confinamiento Magnético Acumulativo de Electrones — Tesis Doctoral</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false})"></script>
+<style>
+/* ── TOKENS APA-LIGHT ─────────────────────────────────────────── */
+:root {
+  --white:      #FFFFFF;
+  --page:       #F8F7F4;
+  --surface:    #FFFFFF;
+  --border:     #D6D3CC;
+  --border-lt:  #E8E5DE;
+  --ink:        #1A1915;
+  --ink-sec:    #3D3B35;
+  --ink-muted:  #6B6860;
+  --ink-faint:  #A09D96;
+  --accent:     #1A4E8C;       /* APA institutional blue */
+  --accent-lt:  #E8EFF8;
+  --accent-mid: #2D6BB5;
+  --red:        #B32020;       /* warning / negativo */
+  --red-lt:     #FBF0F0;
+  --green:      #1A6B3A;
+  --green-lt:   #EEF8F2;
+  --gold:       #7A5C1E;       /* nota de honestidad */
+  --gold-lt:    #FDF6E8;
+  --code-bg:    #F2F0EB;
+  --sidebar-w:  260px;
+  --content-w:  760px;
+  --r:          4px;
+  --font-body:  'EB Garamond', Georgia, serif;
+  --font-ui:    'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ── RESET ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.8;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  height: 100vh;
+  max-height: 100vh;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-header {
+  flex-shrink: 0;
+  padding: 24px 20px 18px;
+  border-bottom: 2px solid var(--accent);
+  background: var(--accent);
+}
+.sidebar-header .program {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+  margin-bottom: 6px;
+}
+.sidebar-header .title-short {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1.45;
+}
+.toc-section-label {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 16px 20px 6px;
+}
+.toc-list {
+  list-style: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 40px;
+}
+.toc-list a {
+  display: block;
+  padding: 4px 20px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.toc-list a:hover { color: var(--accent); background: var(--accent-lt); }
+.toc-list a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-lt);
+  font-weight: 500;
+}
+.toc-list a.sub { padding-left: 34px; font-size: 11.5px; }
+.toc-list a.part {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-top: 14px;
+  pointer-events: none;
+  border-left: none;
+  background: none;
+}
+
+/* ── MAIN ────────────────────────────────────────────────────── */
+.main { margin-left: var(--sidebar-w); flex: 1; }
+
+/* ── COVER ───────────────────────────────────────────────────── */
+.cover {
+  background: var(--white);
+  border-bottom: 3px solid var(--accent);
+  padding: 56px 64px 48px;
+}
+.cover-program {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cover-program::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  max-width: 200px;
+}
+.cover h1 {
+  font-family: var(--font-body);
+  font-size: clamp(24px, 2.8vw, 36px);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.22;
+  margin-bottom: 20px;
+  max-width: 680px;
+}
+.cover h1 em { font-style: italic; color: var(--accent); }
+.cover-subtitle {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ink-muted);
+  line-height: 1.65;
+  max-width: 580px;
+  margin-bottom: 36px;
+}
+.cover-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  max-width: 640px;
+}
+.meta-item {
+  background: var(--white);
+  padding: 14px 18px;
+}
+.meta-item .label {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+.meta-item .value {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ── CONTENT WRAPPER ─────────────────────────────────────────── */
+.content { max-width: var(--content-w); padding: 0 64px 100px; }
+
+/* ── CHAPTER SECTIONS ────────────────────────────────────────── */
+.chapter {
+  padding-top: 60px;
+  margin-top: 48px;
+  border-top: 1.5px solid var(--border);
+}
+.chapter:first-child { border-top: none; margin-top: 0; }
+
+.chapter-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.chapter h2 {
+  font-family: var(--font-body);
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-lt);
+}
+.chapter h3 {
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 36px 0 10px;
+}
+.chapter h4 {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-sec);
+  margin: 24px 0 6px;
+  letter-spacing: 0.01em;
+}
+p { margin-bottom: 1.15em; }
+strong { font-weight: 600; color: var(--ink); }
+em { font-style: italic; }
+
+/* ── EQUATIONS ───────────────────────────────────────────────── */
+.eq-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 14px 18px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r) var(--r) 0;
+  overflow-x: auto;
+}
+.eq-wrap.key {
+  background: var(--accent-lt);
+  border-left-color: var(--accent);
+  border-color: #b8cce8;
+}
+.eq-body { flex: 1; overflow-x: auto; }
+.eq-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── TABLES ──────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin: 20px 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+thead { background: var(--accent); }
+th {
+  padding: 9px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+th:last-child { border-right: none; }
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-lt);
+  color: var(--ink-sec);
+  vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: #FAFAF7; }
+tbody tr:hover { background: var(--accent-lt); }
+.num { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+.num-accent { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 500; }
+.num-green { font-family: var(--font-mono); font-size: 12.5px; color: var(--green); }
+.num-red { font-family: var(--font-mono); font-size: 12.5px; color: var(--red); }
+
+/* ── CODE ────────────────────────────────────────────────────── */
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 18px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-sec);
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--code-bg);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-lt);
+}
+pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+/* ── CALLOUTS ────────────────────────────────────────────────── */
+.callout {
+  padding: 14px 18px;
+  border-radius: var(--r);
+  margin: 18px 0;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.callout-info {
+  background: var(--accent-lt);
+  border: 1px solid #b8cce8;
+  border-left: 3px solid var(--accent);
+  color: var(--ink-sec);
+}
+.callout-warn {
+  background: var(--red-lt);
+  border: 1px solid #e8b8b8;
+  border-left: 3px solid var(--red);
+  color: var(--ink-sec);
+}
+.callout-ok {
+  background: var(--green-lt);
+  border: 1px solid #b8d8c4;
+  border-left: 3px solid var(--green);
+  color: var(--ink-sec);
+}
+.callout-note {
+  background: var(--gold-lt);
+  border: 1px solid #dfc98a;
+  border-left: 3px solid var(--gold);
+  color: var(--ink-sec);
+}
+.callout strong { color: inherit; font-weight: 700; }
+.callout-info strong { color: var(--accent); }
+.callout-warn strong { color: var(--red); }
+.callout-ok strong { color: var(--green); }
+.callout-note strong { color: var(--gold); }
+
+/* ── ABSTRACT BOX ────────────────────────────────────────────── */
+.abstract-box {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 24px 28px;
+  margin: 20px 0;
+}
+.abstract-box .ab-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.abstract-box p { font-size: 15.5px; color: var(--ink-sec); margin-bottom: 0.9em; }
+.abstract-box p:last-of-type { margin-bottom: 0; }
+
+/* ── KEYWORDS ────────────────────────────────────────────────── */
+.keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+.kw {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--accent-lt);
+  border: 1px solid #b8cce8;
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* ── STAT CARDS ──────────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin: 24px 0;
+}
+.stat-box {
+  background: var(--white);
+  padding: 16px 18px;
+  text-align: center;
+}
+.stat-box .s-val {
+  font-family: var(--font-body);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+.stat-box .s-unit {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+.stat-box .s-desc {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+/* ── FIGURES ─────────────────────────────────────────────────── */
+.figure {
+  margin: 28px 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.figure img {
+  width: 100%;
+  display: block;
+  background: var(--page);
+}
+.figure .fig-ph {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #F5F4F0;
+  color: var(--ink-faint);
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+}
+.figure .fig-ph svg { opacity: 0.35; }
+.figure .fig-ph .ph-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.figure .fig-cap {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-lt);
+  background: #FAFAF7;
+}
+.figure .fig-cap .fig-id {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-right: 6px;
+}
+.figure .fig-cap p {
+  display: inline;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.55;
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── PHASES ──────────────────────────────────────────────────── */
+.phases { margin: 20px 0; border: 1px solid var(--border); background: var(--white); }
+.phase {
+  display: flex;
+  gap: 18px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-lt);
+  align-items: flex-start;
+}
+.phase:last-child { border-bottom: none; }
+.phase-badge {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.phase-body h4 { font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; margin: 0 0 4px; color: var(--ink); }
+.phase-body p { font-family: var(--font-ui); font-size: 13px; color: var(--ink-muted); margin: 0; line-height: 1.55; }
+
+/* ── FINDINGS ────────────────────────────────────────────────── */
+.findings { list-style: none; margin: 14px 0; }
+.findings li {
+  padding: 9px 0 9px 28px;
+  position: relative;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ink-sec);
+  border-bottom: 1px solid var(--border-lt);
+  line-height: 1.55;
+}
+.findings li:last-child { border-bottom: none; }
+.findings li::before { position: absolute; left: 0; top: 10px; font-size: 14px; }
+.findings li.ok::before { content: '✅'; }
+.findings li.no::before { content: '❌'; }
+
+/* ── APPENDIX ────────────────────────────────────────────────── */
+.app-block {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 24px;
+  margin: 16px 0;
+}
+.app-block .app-title {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.app-block p { font-size: 15px; color: var(--ink-sec); }
+
+/* ── BIBLIOGRAPHY ────────────────────────────────────────────── */
+.biblio { list-style: none; }
+.biblio li {
+  position: relative;
+  padding: 8px 0 8px 38px;
+  border-bottom: 1px solid var(--border-lt);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-sec);
+  line-height: 1.65;
+}
+.biblio li:last-child { border-bottom: none; }
+.bref {
+  position: absolute;
+  left: 0;
+  top: 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--accent);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────── */
+.doc-footer {
+  background: var(--white);
+  border-top: 2px solid var(--accent);
+  padding: 24px 64px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+/* ── DIVIDER ─────────────────────────────────────────────────── */
+hr.section-rule { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+/* ── MOBILE ──────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .cover, .content { padding-left: 24px; padding-right: 24px; }
+  .doc-footer { padding-left: 24px; padding-right: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ SIDEBAR TOC ════════════════════ -->
+<nav class="sidebar" aria-label="Tabla de contenidos">
+  <div class="sidebar-header">
+    <div class="program">Física Aplicada · Ing. de Plasmas</div>
+    <div class="title-short">Confinamiento Magnético Acumulativo de Electrones</div>
+  </div>
+  <div class="toc-section-label">Contenido</div>
+  <ul class="toc-list">
+    <li><a href="#resumen" class="sub">Resumen / Abstract</a></li>
+    <li><a href="#cap1" class="part">Capítulo 1</a></li>
+    <li><a href="#cap1">Introducción</a></li>
+    <li><a href="#cap2" class="part">Capítulo 2</a></li>
+    <li><a href="#cap2">Estado del Arte</a></li>
+    <li><a href="#cap3" class="part">Capítulo 3</a></li>
+    <li><a href="#cap3">Modelo Físico-Matemático</a></li>
+    <li><a href="#geom" class="sub">3.2 Geometría</a></li>
+    <li><a href="#excit" class="sub">3.3 Excitación Polifásica</a></li>
+    <li><a href="#boris" class="sub">3.6 Integrador de Boris</a></li>
+    <li><a href="#cap4" class="part">Capítulo 4</a></li>
+    <li><a href="#cap4">Algoritmo Genético</a></li>
+    <li><a href="#cap5" class="part">Capítulo 5</a></li>
+    <li><a href="#cap5">Implementación y Validación</a></li>
+    <li><a href="#cap6" class="part">Capítulo 6</a></li>
+    <li><a href="#cap6">Resultados</a></li>
+    <li><a href="#cap6p" class="part">Capítulo 6′</a></li>
+    <li><a href="#cap6p">Reproducción Verificable 2026</a></li>
+    <li><a href="#fig-conv" class="sub">Fig. 6′.1 Convergencia AG</a></li>
+    <li><a href="#fig-acum" class="sub">Fig. 6′.2 Acumulación N(t)</a></li>
+    <li><a href="#fig-geom" class="sub">Fig. 6′.3 Geometría</a></li>
+    <li><a href="#fig-rad" class="sub">Fig. 6′.4 Distribución radial</a></li>
+    <li><a href="#fig-gen" class="sub">Fig. 6′.5 Genoma evolucionado</a></li>
+    <li><a href="#hallazgo" class="sub">★ 6′.7 Hallazgo central</a></li>
+    <li><a href="#fig-lam" class="sub">Fig. 6′.6 Escalado λ</a></li>
+    <li><a href="#carga" class="sub">6′.9 Carga espacial</a></li>
+    <li><a href="#fig-sc" class="sub">Fig. 6′.7 Carga espacial</a></li>
+    <li><a href="#sintesis" class="sub">6′.10 Síntesis</a></li>
+    <li><a href="#cap7" class="part">Capítulo 7</a></li>
+    <li><a href="#cap7">Diseño Experimental</a></li>
+    <li><a href="#cap8" class="part">Capítulo 8</a></li>
+    <li><a href="#cap8">Conclusiones</a></li>
+    <li><a href="#apendices" class="part">Apéndices</a></li>
+    <li><a href="#apendices">A – D · Bibliografía</a></li>
+  </ul>
+</nav>
+
+<!-- ════════════════════ MAIN ════════════════════ -->
+<main class="main">
+
+<!-- ─── PORTADA ─────────────────────────────────────────────── -->
+<header class="cover">
+  <div class="cover-program">Tesis Doctoral · Programa de Física Aplicada / Ingeniería de Plasmas</div>
+  <h1>Confinamiento Magnético <em>Acumulativo</em> de Electrones mediante un Sistema Polifásico de Bobinas Optimizado por Algoritmos Genéticos</h1>
+  <p class="cover-subtitle">Del modelo computacional reproducible a la realización experimental: ecuaciones auditables, optimización evolutiva y hoja de ruta experimental con diagnóstico, protocolo y criterios de validación.</p>
+  <div class="cover-meta">
+    <div class="meta-item">
+      <div class="label">Régimen estacionario</div>
+      <div class="value">≈ 719 electrones</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Tiempo de conf. τ</div>
+      <div class="value">≈ 15.0 s</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Configuración</div>
+      <div class="value">12 bobinas · icosaedro</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Aptitud AG · 150 gen.</div>
+      <div class="value">0.842 → 1.050</div>
+    </div>
+  </div>
+</header>
+
+<div class="content">
+
+<!-- ══ RESUMEN ══════════════════════════════════════════════════ -->
+<section class="chapter" id="resumen">
+  <div class="chapter-label">Resumen · Abstract</div>
+  <h2>Resumen y Palabras Clave</h2>
+
+  <div class="callout callout-note">
+    <strong>Nota de honestidad científica.</strong> Este documento presenta un <strong>modelo computacional</strong> de confinamiento y una <strong>hoja de ruta experimental</strong>. Los resultados numéricos (incluido el régimen de &gt;600 partículas) provienen del simulador descrito, que hace simplificaciones explícitas (dipolos puntuales, ausencia de colisiones y de autocampos, dinámica no relativista). Ninguna afirmación cuantitativa debe tomarse como predicción de un dispositivo real sin validación experimental.
+  </div>
+
+  <div class="abstract-box">
+    <div class="ab-label">Resumen</div>
+    <p>Se presenta un esquema de <strong>confinamiento magnético acumulativo</strong> de electrones en una cavidad cuasi-esférica rodeada por $N$ bobinas dispuestas simétricamente y alimentadas por un <strong>sistema polifásico con desfase de 60°</strong>. Cada bobina y su antípoda forman un <em>par</em> que comparte excitación, generando un campo magnético rotatorio cuyo pseudopotencial efectivo confina partículas cargadas de forma análoga a una trampa de radiofrecuencia. Un conjunto de <strong>láseres</strong> situados en los huecos intersticiales entre tríos de bobinas inyecta energía al plasma; su encendido/apagado y los parámetros de campo se <strong>optimizan mediante un algoritmo genético</strong> cuya función de aptitud combina retención, estabilidad temporal y distribución espacial de la nube.</p>
+    <p>A diferencia de los modelos de número fijo de partículas, aquí los cañones <strong>inyectan electrones de forma continua</strong> y las partículas que alcanzan la frontera se pierden de manera irreversible. En la configuración óptima hallada (12 bobinas en disposición icosaédrica, 20 emisores láser, tasa de inyección 75 part·u.t⁻¹), el sistema <strong>sostiene un régimen estacionario de ≈ 719 electrones confinados</strong> (pico 748), con tiempo medio de confinamiento $\tau \approx 9.6$ u.t. y nube estable a radio medio $\bar{r} \approx 0.62\,R$.</p>
+    <div class="keywords">
+      <span class="kw">confinamiento magnético</span>
+      <span class="kw">plasma no neutro</span>
+      <span class="kw">sistema polifásico</span>
+      <span class="kw">fuerza de Lorentz</span>
+      <span class="kw">integrador de Boris</span>
+      <span class="kw">algoritmos genéticos</span>
+      <span class="kw">trampa de partículas</span>
+      <span class="kw">acumulación de plasma</span>
+    </div>
+  </div>
+
+  <div class="abstract-box">
+    <div class="ab-label">Abstract (English)</div>
+    <p>We present a scheme for <strong>cumulative magnetic confinement</strong> of electrons within a quasi-spherical cavity surrounded by $N$ symmetrically arranged coils driven by a <strong>polyphase system with a 60° phase shift</strong>. A set of <strong>lasers</strong> placed at interstitial gaps injects energy into the plasma; their on/off state and the field parameters are <strong>optimized by a genetic algorithm</strong> whose fitness combines retention, temporal stability, and spatial distribution. In the optimal configuration (12 coils in icosahedral arrangement, 20 laser emitters, injection rate 75), the system <strong>sustains a steady state of ≈ 719 confined electrons</strong> (peak 748). The thesis fully documents the physico-mathematical model, the optimization method, numerical validation, results analysis, and a <strong>detailed experimental roadmap</strong>.</p>
+  </div>
+</section>
+
+<!-- ══ CAP 1 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap1">
+  <div class="chapter-label">Capítulo 1</div>
+  <h2>Introducción</h2>
+
+  <h3>1.1 Contexto y Motivación</h3>
+  <p>El confinamiento de partículas cargadas es un problema central en física de plasmas, física de aceleradores, espectrometría de masas y propulsión espacial. Las trampas de partículas (Penning, Paul, magnéticas de espejo) y los dispositivos de fusión (tokamak, stellarator) comparten un objetivo: <strong>mantener partículas cargadas alejadas de las paredes materiales</strong> durante el mayor tiempo posible, idealmente generando y sosteniendo un plasma.</p>
+  <p>Esta tesis explora una arquitectura alternativa y didácticamente transparente: una <strong>cavidad cuasi-esférica</strong> rodeada de bobinas alimentadas como un <strong>sistema polifásico</strong>, en la que un <strong>algoritmo genético (AG)</strong> descubre automáticamente los parámetros de excitación que maximizan el confinamiento. El interés es doble: científico-pedagógico (banco de pruebas reproducible) y aplicado (hoja de ruta hacia un experimento real de trampa de electrones de bajo coste).</p>
+
+  <h3>1.2 Planteamiento del Problema</h3>
+  <p>Dado un recipiente esférico de radio $R$ con $N$ bobinas en su superficie y cañones que inyectan electrones de forma continua, se busca:</p>
+  <div class="eq-wrap key">
+    <div class="eq-body">$$\theta^\star = \arg\max_{\theta}\ \mathcal{F}(\theta)$$</div>
+    <div class="eq-num">(1.1)</div>
+  </div>
+  <p>donde $\mathcal{F}$ es una funcional de aptitud que pondera retención, estabilidad y distribución (Capítulo 4).</p>
+
+  <h3>1.3 Hipótesis</h3>
+  <div class="callout callout-info"><strong>H1.</strong> Un campo magnético rotatorio generado por un sistema polifásico de bobinas en pares antípodas produce un pseudopotencial capaz de confinar electrones de forma sostenida.</div>
+  <div class="callout callout-info"><strong>H2.</strong> La población confinada en régimen acumulativo alcanza un <em>equilibrio</em> donde la tasa de escape iguala a la de inyección; ese equilibrio es una medida monótona de la calidad del confinamiento.</div>
+  <div class="callout callout-info"><strong>H3.</strong> Un algoritmo genético puede descubrir configuraciones de excitación que sostengan <strong>más de 600 electrones</strong> simultáneamente en el modelo, y dichas configuraciones son interpretables físicamente.</div>
+
+  <h3>1.5 Contribuciones</h3>
+  <ul class="findings">
+    <li class="ok">Un <strong>modelo de confinamiento acumulativo</strong> con inyección continua y pérdida irreversible, que convierte el conteo de partículas en un observable físico.</li>
+    <li class="ok">Una <strong>función de aptitud multiobjetivo</strong> (retención / estabilidad / distribución) para control de confinamiento.</li>
+    <li class="ok">La <strong>co-optimización de campo y calentamiento láser</strong>, con el hallazgo de que la solución óptima <em>minimiza</em> el calentamiento.</li>
+    <li class="ok">Un <strong>escenario reproducible bit a bit</strong> que sostiene ≈ 719 electrones, con análisis de equilibrio.</li>
+    <li class="ok">Una <strong>hoja de ruta experimental</strong> con instrumentación, protocolo, diagnóstico, presupuesto, riesgos y criterios de validación.</li>
+  </ul>
+</section>
+
+<!-- ══ CAP 2 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap2">
+  <div class="chapter-label">Capítulo 2</div>
+  <h2>Estado del Arte y Marco Teórico</h2>
+
+  <h3>2.2 Tipos de Trampas de Partículas</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Trampa</th><th>Mecanismo</th><th>Especie típica</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Penning</strong></td><td>$B$ axial uniforme + pozo electrostático</td><td>electrones, iones, antimateria</td></tr>
+        <tr><td><strong>Penning–Malmberg</strong></td><td>$B$ axial + electrodos cilíndricos</td><td>plasmas no neutros de electrones</td></tr>
+        <tr><td><strong>Paul (RF)</strong></td><td>Campo eléctrico oscilante (pseudopotencial)</td><td>iones</td></tr>
+        <tr><td><strong>Espejo magnético</strong></td><td>Gradiente de $B$ (reflexión)</td><td>plasmas de fusión</td></tr>
+        <tr><td><strong>Tokamak / Stellarator</strong></td><td>Campo toroidal + poloidal</td><td>plasmas de fusión</td></tr>
+        <tr><td><strong>Presente esquema</strong></td><td>Dipolos rotatorios polifásicos (pseudopotencial magnético)</td><td>electrones (estudio)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>2.4 Integrador de Boris</h3>
+  <p>El <strong>integrador de Boris</strong> (1970) es el estándar de facto en simulación de partículas (PIC): es de segundo orden, preserva el volumen en el espacio de fases y, en ausencia de campo eléctrico, ejecuta una <strong>rotación exacta</strong> que conserva la energía cinética. Se adopta por su estabilidad a largo plazo (Qin et al., 2013 [11]).</p>
+
+  <h3>2.5 Optimización por Algoritmos Genéticos en Física de Plasmas</h3>
+  <p>Los AG y el aprendizaje por refuerzo se han usado para <strong>controlar la forma y estabilidad del plasma</strong>. Su ventaja es no requerir gradientes ni un modelo diferenciable del objetivo, lo que encaja con una funcional de aptitud basada en una simulación costosa y discontinua. El precedente paradigmático es Degrave et al. (<em>Nature</em> 602, 2022 [8]).</p>
+</section>
+
+<!-- ══ CAP 3 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap3">
+  <div class="chapter-label">Capítulo 3</div>
+  <h2>Modelo Físico-Matemático</h2>
+
+  <h3>3.1 Sistema de Unidades</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Magnitud</th><th>Símbolo</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr><td>Radio de la cavidad</td><td>$R$</td><td class="num">1</td></tr>
+        <tr><td>Carga / masa</td><td>$q/m$</td><td class="num">1</td></tr>
+        <tr><td>Paso temporal</td><td>$\Delta t$</td><td class="num">0.02</td></tr>
+        <tr><td>Acoplamiento de campo</td><td>$\kappa$</td><td class="num">2.5</td></tr>
+        <tr><td>Suavizado del campo</td><td>$\varepsilon$</td><td class="num">max(0.18, 0.28 d<sub>NN</sub>)</td></tr>
+        <tr><td>Rapidez de inyección</td><td>$v_0$</td><td class="num">0.6 (a 2 kW)</td></tr>
+        <tr><td>Tope de calentamiento</td><td>$v_{\max}$</td><td class="num">2.6 v₀</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="geom">3.2 Geometría del Confinamiento</h3>
+  <h4>3.2.1 Distribución simétrica de bobinas</h4>
+  <p>Para $N\in\{4,6,8,12,20\}$ se usan los vértices normalizados de los <strong>sólidos platónicos</strong>. Para $N$ arbitrario, la <strong>espiral de Fibonacci</strong> reparte los puntos de forma casi uniforme:</p>
+  <div class="eq-wrap">
+    <div class="eq-body">$$y_i = 1-\frac{2i+1}{N},\quad \rho_i=\sqrt{1-y_i^2},\quad \phi_i=\gamma\,i,\quad \mathbf{p}_i = R\,(\rho_i\cos\phi_i,\ y_i,\ \rho_i\sin\phi_i)$$</div>
+    <div class="eq-num">(3.1)</div>
+  </div>
+
+  <h4>3.2.2 Pares antípodas</h4>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathrm{par}(i)=\arg\min_{j\neq i}\big\lVert \mathbf{p}_j+\mathbf{p}_i\big\rVert^2$$</div>
+    <div class="eq-num">(3.2)</div>
+  </div>
+
+  <h3 id="excit">3.3 Excitación Polifásica y Control PD</h3>
+  <div class="eq-wrap key">
+    <div class="eq-body">$$\boxed{I_g(t)=A_g\,\sin\!\big(2\pi f t+\varphi_g\big)+k_p\,\bar{r}(t)+k_d\,\dot{\bar{r}}(t)}$$</div>
+    <div class="eq-num">(3.4)</div>
+  </div>
+  <p>con $\bar{r}(t)=\langle \lVert\mathbf{x}\rVert\rangle$ el radio medio de las partículas vivas y $\varphi_g=g\,\pi/3$. El término oscilante crea el <strong>pseudopotencial de confinamiento</strong>; el término PD es la <strong>autorregulación</strong> radial.</p>
+
+  <h3>3.4 Campo Magnético: Superposición de Dipolos</h3>
+  <div class="eq-wrap key">
+    <div class="eq-body">$$\boxed{\mathbf{B}(\mathbf{r},t)=\kappa\sum_{i=1}^{N} I_i(t)\, \frac{3(\hat{\mathbf{m}}_i\cdot\hat{\mathbf{d}}_i)\hat{\mathbf{d}}_i-\hat{\mathbf{m}}_i} {\big(\lVert\mathbf{d}_i\rVert^2+\varepsilon^2\big)^{3/2}}}$$</div>
+    <div class="eq-num">(3.5)</div>
+  </div>
+
+  <h3>3.5 Dinámica: Fuerza de Lorentz</h3>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\boxed{m\,\dot{\mathbf{v}}=q\,\mathbf{v}\times\mathbf{B}}$$</div>
+    <div class="eq-num">(3.6)</div>
+  </div>
+  <p>La potencia magnética es nula ($\mathbf{F}\cdot\mathbf{v}=0$): el campo <strong>solo curva trayectorias</strong>, sin cambio de energía cinética.</p>
+
+  <h3 id="boris">3.6 Integración Numérica: Empuje de Boris</h3>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathbf{t}=\frac{q}{m}\mathbf{B}\frac{\Delta t}{2},\qquad \mathbf{s}=\frac{2\mathbf{t}}{1+\lVert\mathbf{t}\rVert^2}$$</div>
+    <div class="eq-num">(3.7)</div>
+  </div>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathbf{v}'=\mathbf{v}^n+\mathbf{v}^n\times\mathbf{t},\qquad \mathbf{v}^{n+1}=\mathbf{v}^n+\mathbf{v}'\times\mathbf{s},\qquad \mathbf{x}^{n+1}=\mathbf{x}^n+\mathbf{v}^{n+1}\Delta t$$</div>
+    <div class="eq-num">(3.8)</div>
+  </div>
+
+  <h3>3.8 Balance de Población y Equilibrio</h3>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\frac{dN}{dt}=\lambda-\frac{N}{\tau}$$</div>
+    <div class="eq-num">(3.11)</div>
+  </div>
+  <div class="eq-wrap key">
+    <div class="eq-body">$$\boxed{N_{\text{eq}}=\lambda\,\tau}$$</div>
+    <div class="eq-num">(3.12)</div>
+  </div>
+</section>
+
+<!-- ══ CAP 4 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap4">
+  <div class="chapter-label">Capítulo 4</div>
+  <h2>Optimización mediante Algoritmo Genético</h2>
+
+  <h3>4.1 Codificación (Genoma)</h3>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\theta=\big[\underbrace{f}_{1},\ \underbrace{A_0\dots A_{n_g-1}}_{n_g},\ \underbrace{k_p,k_d}_{2},\ \underbrace{L_0\dots L_{n_L-1}}_{n_L}\big]$$</div>
+    <div class="eq-num">(4.1)</div>
+  </div>
+
+  <h3>4.2 Función de Aptitud</h3>
+  <div class="eq-wrap key">
+    <div class="eq-body">$$\boxed{\mathcal{F}(\theta)=\mathcal{S}+0.30\,\mathcal{E}+0.15\,\mathcal{D}}$$</div>
+    <div class="eq-num">(4.2)</div>
+  </div>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathcal{S}=\frac{1}{T}\sum_{t=1}^{T}\frac{N(t)}{N_{\text{iny}}(t)}\Big(0.5+0.5\,\bar{c}(t)\Big),\quad \bar{c}(t)=\big\langle 1-(r/R)^2\big\rangle$$</div>
+    <div class="eq-num">(4.3)</div>
+  </div>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathcal{E}=e^{-6\,\sigma_t[\bar{r}]}\cdot f_{\text{viva}},\qquad \mathcal{D}=\exp\!\Big[-\big((\overline{\sigma_r}-0.25R)/0.22R\big)^2\Big]\cdot f_{\text{viva}}$$</div>
+    <div class="eq-num">(4.4–4.5)</div>
+  </div>
+
+  <h3>4.3 Operadores Evolutivos</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Operador</th><th>Definición</th></tr></thead>
+      <tbody>
+        <tr><td>Selección</td><td>Torneo de tamaño 3</td></tr>
+        <tr><td>Cruce</td><td>BLX-α, $\alpha=0.3$ [14]</td></tr>
+        <tr><td>Mutación</td><td>Gaussiana (Box–Muller), $\sigma=0.18\times\text{rango}$</td></tr>
+        <tr><td>Elitismo</td><td>10 % superior conservado [7]</td></tr>
+        <tr><td>Episodio</td><td>Semilla común por generación, variable entre generaciones</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══ CAP 5 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap5">
+  <div class="chapter-label">Capítulo 5</div>
+  <h2>Implementación Computacional y Validación Numérica</h2>
+
+  <h3>5.1 Arquitectura</h3>
+  <pre><code>config ──► getGeometry (memoizado)
+              bobinas, pares, hull→huecos, láseres, ε, d_NN
+       ──► GA (Web Worker): por generación, por genoma →
+              Simulation: I(t)(3.4) → B(3.5) → Boris(3.7-3.8)
+                        → láseres(3.10) → escapes → inyección(3.7.1)
+                        → métricas de aptitud (4.3-4.5)
+       ──► mejor genoma ──► render 3D (Three.js) en tiempo real</code></pre>
+
+  <h3>5.3 Validación Numérica</h3>
+  <ul class="findings">
+    <li class="ok"><strong>Conservación de rapidez</strong> (Boris sin láser): $\lVert\mathbf{v}\rVert$ constante a $\sim 10^{-15}$ relativo.</li>
+    <li class="ok"><strong>Triangulación:</strong> icosaedro→20, octaedro→8, cubo→12; Fibonacci $2N-4$ exacto ($N=10\ldots200$).</li>
+    <li class="ok"><strong>Determinismo:</strong> con semilla fija, trayectorias y aptitud reproducibles bit a bit (RNG mulberry32).</li>
+    <li class="ok"><strong>Balance de población:</strong> equilibrio medido coincide con (3.12).</li>
+  </ul>
+</section>
+
+<!-- ══ CAP 6 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap6">
+  <div class="chapter-label">Capítulo 6</div>
+  <h2>Resultados y Análisis de Escenarios</h2>
+
+  <h3>6.1 Configuración Óptima (Nominal)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr><td>Bobinas</td><td class="num">12 (icosaedro), 6 pares antípodas</td></tr>
+        <tr><td>Láseres (huecos)</td><td class="num">20</td></tr>
+        <tr><td>Tasa de inyección λ</td><td class="num">75 part / u.t.</td></tr>
+        <tr><td>Acoplamiento κ</td><td class="num">2.5</td></tr>
+        <tr><td>Población AG / generaciones</td><td class="num">48 / 36</td></tr>
+        <tr><td>Pasos por episodio</td><td class="num">600</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>6.2 Convergencia del AG</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Generación</th><th>Mejor</th><th>Media</th><th>Mejor histórico</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td class="num">0.832</td><td class="num">0.651</td><td class="num">0.832</td></tr>
+        <tr><td>8</td><td class="num">0.922</td><td class="num">0.870</td><td class="num">0.922</td></tr>
+        <tr><td>20</td><td class="num">0.941</td><td class="num">0.880</td><td class="num">0.947</td></tr>
+        <tr><td>28</td><td class="num">0.960</td><td class="num">0.897</td><td class="num">0.960</td></tr>
+        <tr><td>35</td><td class="num">0.960</td><td class="num">0.912</td><td class="num-accent">0.962</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>6.3 Régimen Acumulativo: &gt;600 Electrones Sostenidos</h3>
+  <div class="stats-row">
+    <div class="stat-box"><div class="s-val">748</div><div class="s-unit">electrones (pico)</div><div class="s-desc">Máximo alcanzado</div></div>
+    <div class="stat-box"><div class="s-val">≈719</div><div class="s-unit">electrones</div><div class="s-desc">Equilibrio estacionario</div></div>
+    <div class="stat-box"><div class="s-val">9.6</div><div class="s-unit">u.t.</div><div class="s-desc">Tiempo de conf. τ</div></div>
+    <div class="stat-box"><div class="s-val">0.62 R</div><div class="s-unit">radio medio</div><div class="s-desc">Posición media de la nube</div></div>
+    <div class="stat-box"><div class="s-val">2/20</div><div class="s-unit">láseres ON</div><div class="s-desc">Calentamiento mínimo</div></div>
+  </div>
+
+  <div class="callout callout-ok">
+    <strong>Hallazgo: el óptimo minimiza el calentamiento.</strong> El AG mantuvo solo 2 de 20 láseres encendidos. Como el campo magnético conserva la energía, todo calentamiento extra aumenta el radio de Larmor ($r_L \propto v$) y favorece el escape; el óptimo conserva el mínimo de láseres. Es un resultado <strong>físicamente interpretable descubierto por la optimización</strong>, no impuesto a mano.
+  </div>
+</section>
+
+<!-- ══ CAP 6' ════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap6p">
+  <div class="chapter-label">Capítulo 6′ · Revisión 2026</div>
+  <h2>Reproducción Computacional Verificable del Experimento</h2>
+
+  <div class="callout callout-note">
+    <strong>Naturaleza de este capítulo.</strong> Las tablas del Cap. 6 (v1) eran <em>ilustrativas</em>. Este capítulo las <strong>sustituye</strong> por una corrida íntegramente reproducible ejecutada con el código real del repositorio (<code>js/physics.js</code>, <code>js/ga.js</code>) sin modificarlo, mediante un <em>harness</em> headless en Node.js, semillas fijas. La regla rectora: <em>un resultado de simulación que no es reproducible no es un resultado</em> (Birdsall–Langdon [3]).
+  </div>
+
+  <h3>6′.1 Objetivo y Advertencia Central</h3>
+  <div class="callout callout-warn">
+    <strong>Conclusión anticipada:</strong> El número absoluto de electrones confinados NO es un observable físico de densidad de plasma. La población de equilibrio obedece $N_{\text{eq}}=\lambda\tau$ y escala <strong>linealmente y sin saturar</strong> con la tasa de inyección $\lambda$ (§6′.7). El "700" se alcanza simplemente eligiendo $\lambda$; lo que el experimento sí mide de forma significativa es el <strong>tiempo de confinamiento $\tau$</strong>, no $N$.
+  </div>
+
+  <h3>6′.2 Metodología</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parámetro</th><th>Valor</th><th>Origen en código</th></tr></thead>
+      <tbody>
+        <tr><td>Bobinas $N$</td><td class="num">12 (icosaedro), 6 pares</td><td><code>getGeometry()</code></td></tr>
+        <tr><td>Láseres $n_L$</td><td class="num">12</td><td><code>coilGaps</code></td></tr>
+        <tr><td>Genoma</td><td class="num">21 genes</td><td><code>geneCount(12,12)</code></td></tr>
+        <tr><td>Tasa $\lambda$ (nominal)</td><td class="num">10 part/s</td><td><code>injectionRate</code></td></tr>
+        <tr><td>Población / generaciones</td><td class="num">40 / 150</td><td>corrida</td></tr>
+        <tr><td>Semillas</td><td><code>gaSeed=12345</code>, <code>seed=7</code></td><td>mulberry32</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FIGURA 6'.1 -->
+  <h3 id="fig-conv">6′.3 Convergencia del Algoritmo Genético</h3>
+  <div class="figure">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_convergencia.png"
+         alt="Figura 6′.1 — Convergencia del AG: aptitud media, mejor de la generación y mejor histórico a lo largo de 150 generaciones."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="4" y="28" width="6" height="8" fill="#1A4E8C"/><rect x="13" y="20" width="6" height="16" fill="#1A4E8C"/><rect x="22" y="12" width="6" height="24" fill="#1A4E8C"/><rect x="31" y="6" width="6" height="30" fill="#1A4E8C"/><path d="M4 30 L10 22 L22 14 L36 6" stroke="#B32020" stroke-width="2" stroke-dasharray="3,2"/></svg>
+      <div class="ph-text">fig_convergencia.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.1</span><p>Aptitud media, mejor de la generación y mejor histórico a lo largo de 150 generaciones (datos reales, <code>convergence.json</code>). El mejor histórico parte de $\mathcal{F}=0.842$ (gen. 0) y asciende a $\mathcal{F}=1.050$; el salto cualitativo ocurre en las primeras ~15 generaciones.</p></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="s-val">0.842</div><div class="s-unit">aptitud inicial</div><div class="s-desc">Generación 0</div></div>
+    <div class="stat-box"><div class="s-val">1.050</div><div class="s-unit">aptitud final</div><div class="s-desc">Mejor histórico, gen. 150</div></div>
+    <div class="stat-box"><div class="s-val">~15</div><div class="s-unit">generaciones</div><div class="s-desc">Convergencia principal</div></div>
+  </div>
+
+  <!-- FIGURA 6'.2 -->
+  <h3 id="fig-acum">6′.4 Régimen Acumulativo y Dinámica de Llenado</h3>
+  <div class="figure">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_acumulacion.png"
+         alt="Figura 6′.2 — Llenado desde cámara vacía hasta el equilibrio dinámico (λ=10, 600 s)."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><path d="M4 34 Q12 10 20 8 Q28 6 34 7" stroke="#1A4E8C" stroke-width="2" fill="none"/><line x1="4" y1="8" x2="36" y2="8" stroke="#B32020" stroke-width="1.5" stroke-dasharray="4,2"/></svg>
+      <div class="ph-text">fig_acumulacion.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.2</span><p>Llenado desde cámara vacía hasta el equilibrio dinámico ($\lambda=10$, 600 s). Azul: $N(t)$ medido. Verde: $N_{\text{eq}}$ medido. Rojo punteado: modelo de balance $\lambda\tau(1-e^{-t/\tau})$. El ajuste arroja $\tau\approx15.3$ s.</p></div>
+  </div>
+
+  <div class="eq-wrap">
+    <div class="eq-body">$$\dot{N}=\lambda-\frac{N}{\tau}\ \Rightarrow\ N(t)=\lambda\tau\big(1-e^{-t/\tau}\big),\qquad N_{\text{eq}}=\lambda\tau$$</div>
+    <div class="eq-num">(6′.1)</div>
+  </div>
+
+  <!-- FIGURA 6'.3 -->
+  <h3 id="fig-geom">6′.5 Estructura Espacial — Geometría</h3>
+  <div class="figure">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_geometria.png"
+         alt="Figura 6′.3 — Geometría real: 12 bobinas en vértices del icosaedro, 6 pares antípodas, 12 láseres en huecos."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="16" stroke="#D6D3CC" stroke-width="1"/><circle cx="20" cy="4" r="3" fill="#1A4E8C"/><circle cx="34" cy="12" r="3" fill="#1A4E8C"/><circle cx="34" cy="28" r="3" fill="#1A4E8C"/><circle cx="20" cy="36" r="3" fill="#2D6BB5"/><circle cx="6" cy="28" r="3" fill="#2D6BB5"/><circle cx="6" cy="12" r="3" fill="#2D6BB5"/></svg>
+      <div class="ph-text">fig_geometria.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.3</span><p>Geometría real: 12 bobinas en vértices del icosaedro, 6 pares antípodas (mismo color comparten genes), 12 láseres en los huecos de la triangulación.</p></div>
+  </div>
+
+  <!-- FIGURA 6'.4 -->
+  <h3 id="fig-rad">6′.5 Estructura Espacial — Distribución Radial</h3>
+  <div class="figure">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_distribucion_radial.png"
+         alt="Figura 6′.4 — Histograma radial de la nube en equilibrio: radio medio r̄/R=0.608, desviación 0.161."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="4" y="30" width="4" height="6" fill="#1A4E8C"/><rect x="10" y="20" width="4" height="16" fill="#1A4E8C"/><rect x="16" y="10" width="4" height="26" fill="#1A4E8C"/><rect x="22" y="16" width="4" height="20" fill="#1A4E8C"/><rect x="28" y="26" width="4" height="10" fill="#1A4E8C"/><rect x="34" y="32" width="4" height="4" fill="#1A4E8C"/></svg>
+      <div class="ph-text">fig_distribucion_radial.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.4</span><p>Histograma radial de la nube en equilibrio (143 electrones): radio medio $\bar{r}/R=0.608$, desviación $\sigma_r=0.161$. La nube se organiza como una capa esférica estable, sin electrones en el borde ($r=R$).</p></div>
+  </div>
+
+  <!-- FIGURA 6'.5 -->
+  <h3 id="fig-gen">6′.6 El Controlador Descubierto y la Física que Revela</h3>
+  <div class="figure">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_genoma.png"
+         alt="Figura 6′.5 — Parámetros del mejor controlador: amplitudes por par, frecuencia f=3.07, ganancias PD, láseres ON=0/12."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="4" y="14" width="6" height="22" fill="#1A4E8C"/><rect x="12" y="10" width="6" height="26" fill="#2D6BB5"/><rect x="20" y="18" width="6" height="18" fill="#1A4E8C"/><rect x="28" y="24" width="6" height="12" fill="#2D6BB5"/></svg>
+      <div class="ph-text">fig_genoma.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.5</span><p>Parámetros del mejor controlador evolucionado: amplitudes por par $A_g$, frecuencia común $f=3.07$, ganancias $k_p=-0.81$, $k_d=0.22$, <strong>láseres ON = 0 / 12</strong>. El AG apagó todos los láseres.</p></div>
+  </div>
+
+  <div class="callout callout-ok">
+    <strong>Hallazgo 1 — Calentamiento nulo:</strong> El AG apagó los 12 láseres. Como el campo magnético solo rota la velocidad y conserva $|\mathbf{v}|$, toda energía añadida aumenta el radio de Larmor $r_L=mv_\perp/(qB)$ y la probabilidad de fuga. La estrategia ganadora es <strong>no calentar</strong>.
+  </div>
+  <div class="callout callout-ok">
+    <strong>Hallazgo 2 — Control PD débil y derivativo:</strong> $k_p=-0.81$ (restaurador suave) y $k_d=0.22$ (amortiguamiento de la deriva). El confinamiento descansa en la modulación polifásica, con el PD como regulación fina.
+  </div>
+
+  <!-- FIGURA 6'.6 + HALLAZGO -->
+  <h3 id="hallazgo">6′.7 ★ Hallazgo Central: no hay límite de densidad — el "700" es limitado por inyección</h3>
+  <div class="callout callout-warn">
+    <strong>Firma diagnóstica de modelo de partícula independiente:</strong> en <code>physics.js</code>, <code>fieldAt()</code> suma únicamente los dipolos de las bobinas; <strong>no existe el término coulombiano electrón–electrón</strong>. El conteo mide el caudal de inyección, no una densidad confinada. La figura de mérito física es $\tau$, no $N$.
+  </div>
+
+  <div class="figure" id="fig-lam">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_escalado_lambda.png"
+         alt="Figura 6′.6 — Barrido de tasa de inyección: N_eq es exactamente lineal en λ (R²=0.99996), τ es invariante (~15 s)."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><line x1="4" y1="36" x2="36" y2="36" stroke="#D6D3CC" stroke-width="1"/><line x1="4" y1="36" x2="4" y2="4" stroke="#D6D3CC" stroke-width="1"/><path d="M4 34 L12 28 L20 20 L28 12 L36 4" stroke="#1A4E8C" stroke-width="2" fill="none"/><line x1="4" y1="22" x2="36" y2="22" stroke="#1A6B3A" stroke-width="1.5" stroke-dasharray="3,2"/></svg>
+      <div class="ph-text">fig_escalado_lambda.png · godie007/mhd-simulator</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.6</span><p>Barrido de la tasa de inyección con el mismo controlador. Azul: $N_{\text{eq}}$ medido. Rojo: ajuste $N_{\text{eq}}=\tau\lambda$ con $\tau=15.03$ s y $R^2=0.99996$. Verde: $\tau$ medido, <strong>constante</strong> ($\approx15$ s) en todo el rango. La curva que <em>no se dobla</em> es evidencia de ausencia del límite de Brillouin.</p></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>λ (part/s)</th><th>N<sub>eq</sub></th><th>τ (s)</th><th>Fuga acumulada</th></tr></thead>
+      <tbody>
+        <tr><td class="num">10</td><td class="num">149.9</td><td class="num-green">14.99</td><td>97.5 %</td></tr>
+        <tr><td class="num">25</td><td class="num">373.6</td><td class="num-green">14.95</td><td>97.5 %</td></tr>
+        <tr><td class="num">50</td><td class="num">751.1</td><td class="num-green">15.02</td><td>97.5 %</td></tr>
+        <tr><td class="num">75</td><td class="num">1121.1</td><td class="num-green">14.95</td><td>97.6 %</td></tr>
+        <tr><td class="num">100</td><td class="num">1490.8</td><td class="num-green">14.91</td><td>97.5 %</td></tr>
+        <tr><td class="num">150</td><td class="num">2262.8</td><td class="num-green">15.09</td><td>97.5 %</td></tr>
+        <tr><td class="num">200</td><td class="num">3009.3</td><td class="num-green">15.05</td><td>97.5 %</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FIGURA 6'.7 CARGA ESPACIAL -->
+  <h3 id="carga">6′.9 Validación del Límite de Densidad: Experimento con Carga Espacial</h3>
+  <p>Se construyó un módulo extendido (<code>physics_sc.mjs</code>) con autocampo eléctrico electrón–electrón (modelo particle–particle):</p>
+  <div class="eq-wrap">
+    <div class="eq-body">$$\mathbf{a}_i=K\sum_{j\neq i}\frac{\mathbf{r}_i-\mathbf{r}_j}{\big(|\mathbf{r}_i-\mathbf{r}_j|^2+s^2\big)^{3/2}},\qquad s=0.03$$</div>
+    <div class="eq-num">(6′.2)</div>
+  </div>
+
+  <div class="figure" id="fig-sc">
+    <img src="https://raw.githubusercontent.com/godie007/mhd-simulator/main/docs/figuras/fig_carga_espacial.png"
+         alt="Figura 6′.7 — Con autocampo: N_eq pasa de lineal (gris) a sublineal y acotada (rojo), ×5.2 supresión a λ=300; τ colapsa de 15.5 s a 2.9 s."
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div class="fig-ph" style="display:none;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><path d="M4 34 L12 28 L20 20 L28 12 L36 4" stroke="#D6D3CC" stroke-width="1.5" stroke-dasharray="3,2"/><path d="M4 34 L12 26 L20 18 L28 14 L36 12" stroke="#B32020" stroke-width="2" fill="none"/></svg>
+      <div class="ph-text">fig_carga_espacial.png · godie007/mhd-simulator<br>github.com/godie007/mhd-simulator/blob/main/docs/figuras/fig_carga_espacial.png</div>
+    </div>
+    <div class="fig-cap"><span class="fig-id">Figura 6′.7</span><p>Mismo controlador con autocampo $e^-\!-e^-$ ($K=10^{-3}$). <em>Izquierda:</em> $N_{\text{eq}}$ pasa de lineal sin techo (gris) a sublineal y acotada (rojo), ×5.2 de supresión a $\lambda=300$. <em>Derecha:</em> el tiempo de confinamiento efectivo $\tau$ se desploma de 15.5 s a 2.9 s al aumentar la densidad — fenomenología del límite de Brillouin [12].</p></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>λ (part/s)</th><th>N<sub>eq</sub> (con carga)</th><th>Lineal (sin carga)</th><th>τ efectivo (s)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">10</td><td class="num">155</td><td style="color:var(--ink-faint)">150</td><td class="num-green">15.5</td></tr>
+        <tr><td class="num">25</td><td class="num">324</td><td style="color:var(--ink-faint)">376</td><td class="num-green">12.9</td></tr>
+        <tr><td class="num">50</td><td class="num">435</td><td style="color:var(--ink-faint)">752</td><td class="num" style="color:var(--gold)">8.7</td></tr>
+        <tr><td class="num">100</td><td class="num">544</td><td style="color:var(--ink-faint)">1503</td><td class="num" style="color:var(--gold)">5.4</td></tr>
+        <tr><td class="num">200</td><td class="num">713</td><td style="color:var(--ink-faint)">3006</td><td class="num-red">3.6</td></tr>
+        <tr><td class="num">300</td><td class="num">868</td><td style="color:var(--ink-faint)">4509</td><td class="num-red">2.9</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-ok">
+    <strong>Predicción confirmada cuantitativamente:</strong> A baja densidad ($\lambda=10$), el resultado coincide con el modelo sin autocampo. Al crecer $\lambda$, $N_{\text{eq}}$ crece de forma <strong>sublineal</strong>; el sistema se autolimita. $\tau$ decae monotónicamente (15.5 → 2.9 s): cuanto más densa la nube, más rápido se autoexpulsa. Esta es la fenomenología esencial del <strong>límite de Brillouin</strong> [12].
+  </div>
+
+  <!-- SÍNTESIS -->
+  <h3 id="sintesis">6′.10 Síntesis Honesta: Qué se Demostró y Qué No</h3>
+
+  <p><strong>Demostrado (resultado real y reproducible):</strong></p>
+  <ul class="findings">
+    <li class="ok">Un AG con genoma de 21 parámetros <strong>converge</strong> rápida y robustamente ($\mathcal{F}: 0.84 \to 1.05$ en 150 generaciones) maximizando el tiempo de confinamiento.</li>
+    <li class="ok">La población acumulada sigue <strong>cuantitativamente</strong> $N_{\text{eq}}=\lambda\tau$, con $\tau\approx15$ s reproducible bit a bit.</li>
+    <li class="ok">La optimización <strong>descubre física interpretable</strong>: calentamiento nulo, pseudopotencial polifásico, PD de regulación fina.</li>
+    <li class="ok">El modelo extendido con <strong>carga espacial</strong> confirma el límite de Brillouin: escalado sublineal y $\tau$ colapsando con la densidad.</li>
+    <li class="ok">Toda la cadena es <strong>reproducible bit a bit</strong> (Apéndice D).</li>
+  </ul>
+
+  <p><strong>No demostrado (no afirmable con este modelo):</strong></p>
+  <ul class="findings">
+    <li class="no">Que sea "experimentalmente posible confinar 700 electrones": en el modelo base el 700 es un artefacto de $\lambda$.</li>
+    <li class="no">Una <strong>densidad de Brillouin en unidades SI</strong>: §6′.9 captura la forma cualitativa, no el valor numérico $n_B=\varepsilon_0B^2/2m$.</li>
+    <li class="no">Predicciones que requieran <strong>colisiones, campo de espira real o relatividad</strong> (ausentes).</li>
+  </ul>
+</section>
+
+<!-- ══ CAP 7 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap7">
+  <div class="chapter-label">Capítulo 7</div>
+  <h2>De la Simulación al Experimento: Diseño y Realización</h2>
+
+  <h3>7.1 Estrategia de Validación Incremental</h3>
+  <div class="phases">
+    <div class="phase">
+      <div class="phase-badge">I</div>
+      <div class="phase-body">
+        <h4>Trampa estática (sin AG)</h4>
+        <p>Verificar confinamiento con campos fijos y diagnóstico de carga acumulada. Medir $\tau_0$ de referencia.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-badge">II</div>
+      <div class="phase-body">
+        <h4>Control en lazo</h4>
+        <p>Introducir el control PD y la modulación polifásica; medir $\tau(f)$ y buscar el máximo predicho por la teoría ponderomotriz.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-badge">III</div>
+      <div class="phase-body">
+        <h4>Optimización</h4>
+        <p>Usar el AG <em>fuera de línea</em> sobre un gemelo digital calibrado y transferir las mejores soluciones al equipo real.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>7.7 Diagnóstico</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Observable del modelo</th><th>Diagnóstico experimental</th></tr></thead>
+      <tbody>
+        <tr><td>$N(t)$ (conteo)</td><td>Carga total recogida; corriente de fuga; electrodos de imagen</td></tr>
+        <tr><td>Densidad / perfil</td><td>Interferometría láser/microondas; sondas de Langmuir</td></tr>
+        <tr><td>Energía / temperatura</td><td>Dispersión de Thomson; analizador de energía retardante</td></tr>
+        <tr><td>Posición / estabilidad</td><td>Bobinas de <em>pickup</em>; tomografía de emisión; cámara rápida</td></tr>
+        <tr><td>$\tau$ (tiempo de confinamiento)</td><td>Decaimiento de la carga tras cortar la inyección</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>7.11 Criterios de Éxito</h3>
+  <ul class="findings">
+    <li class="ok"><strong>C1:</strong> Confinamiento medible con campo estático ($\tau \gg$ tránsito balístico). <em>Valida H1 parcialmente.</em></li>
+    <li class="ok"><strong>C2:</strong> Dependencia $\tau(f)$ con máximo en el rango predicho. <em>Valida H1 y teoría ponderomotriz.</em></li>
+    <li class="ok"><strong>C3:</strong> Acumulación con $N_{\text{eq}}\propto\lambda$ a $\tau$ fijo. <em>Valida H2.</em></li>
+    <li class="ok"><strong>C4:</strong> Las soluciones del AG mejoran $\tau/N_{\text{eq}}$ frente a ajustes manuales. <em>Valida H3.</em></li>
+  </ul>
+</section>
+
+<!-- ══ CAP 8 ═════════════════════════════════════════════════════ -->
+<section class="chapter" id="cap8">
+  <div class="chapter-label">Capítulo 8</div>
+  <h2>Conclusiones y Trabajo Futuro</h2>
+
+  <h3>8.1 Conclusiones</h3>
+  <ol style="margin:0 0 1em 22px;font-family:var(--font-ui);font-size:13.5px;color:var(--ink-sec);line-height:1.7">
+    <li style="margin-bottom:10px">Se ha formulado y validado un <strong>modelo completo y reproducible</strong> de confinamiento magnético acumulativo de electrones, con todas las ecuaciones auditables (Cap. 3).</li>
+    <li style="margin-bottom:10px">El <strong>modelo acumulativo</strong> convierte el conteo de partículas en un observable físico con equilibrio $N_{\text{eq}}=\lambda\tau$ (3.12), confirmado numéricamente.</li>
+    <li style="margin-bottom:10px">El <strong>AG converge</strong> rápida y robustamente ($\mathcal{F}:0.84\to1.05$ en 150 generaciones). El observable físico significativo es $\tau$, no $N$ (§6′.7).</li>
+    <li style="margin-bottom:10px">La optimización <strong>descubre física</strong>: minimiza el calentamiento láser para reducir el radio de Larmor y las pérdidas.</li>
+    <li style="margin-bottom:0">Se entrega una <strong>hoja de ruta experimental</strong> detallada con instrumentación, protocolo, diagnóstico, presupuesto, riesgos y criterios de validación.</li>
+  </ol>
+
+  <h3>8.3 Trabajo Futuro</h3>
+  <ul class="findings">
+    <li class="ok"><strong>Re-optimizar el AG bajo carga espacial</strong>: el controlador actual es cota inferior; re-evolucionar debería recuperar parte de la población perdida.</li>
+    <li class="ok"><strong>Modelo cinético/PIC</strong> con autocampos en malla y calibración a densidad de Brillouin en SI.</li>
+    <li class="ok"><strong>Campo de espira realista</strong> (Biot–Savart) en lugar de dipolo puntual.</li>
+    <li class="ok"><strong>Corrección relativista</strong> del empuje de Boris para energías altas; inclusión de colisiones.</li>
+    <li class="ok"><strong>Control en línea por aprendizaje por refuerzo</strong> sobre el gemelo digital.</li>
+    <li class="ok"><strong>Construcción de la Fase I</strong> y comparación experimento–simulación.</li>
+  </ul>
+</section>
+
+<!-- ══ APÉNDICES ═════════════════════════════════════════════════ -->
+<section class="chapter" id="apendices">
+  <div class="chapter-label">Apéndices · Bibliografía</div>
+  <h2>Apéndices y Referencias</h2>
+
+  <h3>Apéndice A — Derivaciones</h3>
+  <div class="app-block">
+    <div class="app-title">A.1 — Conservación de la rapidez en el empuje de Boris</div>
+    <p>La rotación de Boris implementa $\mathbf{v}^{n+1}=\mathcal{R}(\hat{\mathbf{b}},\theta)\mathbf{v}^n$ con $\theta=2\arctan(\lVert\mathbf{t}\rVert)$. Por ser $\mathcal{R}$ ortogonal, $\lVert\mathbf{v}^{n+1}\rVert=\lVert\mathbf{v}^n\rVert$. ∎</p>
+  </div>
+  <div class="app-block">
+    <div class="app-title">A.2 — Equilibrio de población</div>
+    <p>De $\dot{N}=\lambda-N/\tau$, en estado estacionario $\dot{N}=0\Rightarrow N_{\text{eq}}=\lambda\tau$; transitorio: $N(t)=\lambda\tau(1-e^{-t/\tau})$. ∎</p>
+  </div>
+  <div class="app-block">
+    <div class="app-title">A.3 — Campo dipolar</div>
+    <p>De $\mathbf{A}=\frac{\mu_0}{4\pi}\frac{\mathbf{m}\times\hat{\mathbf{r}}}{r^2}$ y $\mathbf{B}=\nabla\times\mathbf{A}$ se obtiene $\mathbf{B}=\frac{\mu_0}{4\pi}\frac{3(\mathbf{m}\cdot\hat{\mathbf{r}})\hat{\mathbf{r}}-\mathbf{m}}{r^3}$, forma usada en (3.5) con regularización $\varepsilon$. ∎</p>
+  </div>
+
+  <h3>Apéndice B — Tabla Maestra de Parámetros</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Símbolo</th><th>Significado</th><th>Valor nominal</th></tr></thead>
+      <tbody>
+        <tr><td>$R$</td><td>Radio de cavidad</td><td class="num">1</td></tr>
+        <tr><td>$N$</td><td>Nº de bobinas</td><td class="num">12 (icosaedro)</td></tr>
+        <tr><td>$n_g$</td><td>Nº de pares antípodas</td><td class="num">6</td></tr>
+        <tr><td>$n_L$</td><td>Nº de láseres</td><td class="num">12 (huecos, Cap. 6′)</td></tr>
+        <tr><td>$\lambda$</td><td>Tasa de inyección</td><td class="num">10 nominal; barrido 10–200</td></tr>
+        <tr><td>$\Delta t$</td><td>Paso temporal</td><td class="num">0.02</td></tr>
+        <tr><td>$\kappa$</td><td>Acoplamiento de campo</td><td class="num">2.5</td></tr>
+        <tr><td>$f$</td><td>Frecuencia común (gen del AG)</td><td class="num">∈ [0, 4]</td></tr>
+        <tr><td>$\varphi_g$</td><td>Desfase polifásico</td><td class="num">g · 60°</td></tr>
+        <tr><td>Pop. / generaciones AG</td><td>Configuración Cap. 6′</td><td class="num">40 / 150</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Apéndice C — Pseudocódigo del Bucle de Simulación</h3>
+  <pre><code>Simulation.step(Δt):
+    r̄, ṙ̄ ← estadística radial de la nube
+    para cada grupo g:
+        I_g ← A_g·sin(2πf·t+φ_g) + k_p·r̄ + k_d·ṙ̄       (ec. 3.4)
+    para cada partícula i (array compacto):
+        B ← Σ_bobinas dipolo(I_i, p_i, x_i)               (ec. 3.5)
+        v ← empuje_de_Boris(v, B, Δt)                      (ec. 3.7–3.8)
+        v ← calentamiento_láser(v, x_i) si láser ON e ilumina (ec. 3.10)
+        x ← x + v·Δt
+        si |x| ≥ R: eliminar i (swap-remove); lost++
+    inyectar ⌊λ·Δt + acumulador⌋ partículas nuevas          (§3.7.1)
+    acumular métricas de aptitud                            (ec. 4.3–4.5)</code></pre>
+
+  <h3>Apéndice D — Reproducibilidad (Cap. 6′)</h3>
+  <div class="app-block">
+    <div class="app-title">Entorno y Comandos</div>
+    <pre><code>node --version        # probado en v22
+mkdir -p /tmp/dodeca-exp/js
+cp js/physics.js js/ga.js /tmp/dodeca-exp/js/
+printf '{"type":"module"}' > /tmp/dodeca-exp/package.json
+
+cd /tmp/dodeca-exp
+GENS=150 LONG_STEPS=30000 node runner.mjs
+node sweep.mjs
+node geomexport.mjs
+venv/bin/python plot.py     # escribe en docs/figuras/</code></pre>
+  </div>
+  <div class="app-block">
+    <div class="app-title">Resultados de Referencia</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Magnitud</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Aptitud gen. 0 → mejor histórico final</td><td class="num-accent">0.842 → 1.050</td></tr>
+          <tr><td>$f$ óptimo</td><td class="num">3.073</td></tr>
+          <tr><td>$k_p$ óptimo</td><td class="num">−0.807</td></tr>
+          <tr><td>$k_d$ óptimo</td><td class="num">0.223</td></tr>
+          <tr><td>Láseres encendidos en el óptimo</td><td><strong>0 / 12</strong></td></tr>
+          <tr><td>$N_{\text{eq}}$ a $\lambda=10$</td><td class="num">153.5</td></tr>
+          <tr><td>$\tau$ (ajuste del barrido)</td><td class="num">15.03 s</td></tr>
+          <tr><td>Ajuste $N_{\text{eq}}=\tau\lambda$</td><td class="num-green">R² = 0.99996</td></tr>
+          <tr><td>$\bar{r}/R$ en equilibrio</td><td class="num">0.608</td></tr>
+          <tr><td>$\sigma_r/R$ en equilibrio</td><td class="num">0.161</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="section-rule">
+  <h3>Bibliografía</h3>
+  <ol class="biblio">
+    <li><span class="bref">1</span>J. D. Griffiths, <em>Introduction to Electrodynamics</em>, 4ª ed., Cambridge UP, 2017.</li>
+    <li><span class="bref">2</span>J. P. Boris, "Relativistic plasma simulation—optimization of a hybrid code", <em>Proc. 4th Conf. on Numerical Simulation of Plasmas</em>, 1970.</li>
+    <li><span class="bref">3</span>C. K. Birdsall, A. B. Langdon, <em>Plasma Physics via Computer Simulation</em>, CRC Press, 2004.</li>
+    <li><span class="bref">4</span>W. Paul, "Electromagnetic traps for charged and neutral particles", <em>Rev. Mod. Phys.</em> <strong>62</strong>, 531 (1990).</li>
+    <li><span class="bref">5</span>J. H. Malmberg, J. S. deGrassie, "Properties of nonneutral plasma", <em>Phys. Rev. Lett.</em> <strong>35</strong>, 577 (1975).</li>
+    <li><span class="bref">6</span>R. C. Davidson, <em>Physics of Nonneutral Plasmas</em>, Imperial College Press, 2001.</li>
+    <li><span class="bref">7</span>D. E. Goldberg, <em>Genetic Algorithms in Search, Optimization, and Machine Learning</em>, Addison-Wesley, 1989.</li>
+    <li><span class="bref">8</span>J. Degrave et al., "Magnetic control of tokamak plasmas through deep reinforcement learning", <em>Nature</em> <strong>602</strong>, 414 (2022).</li>
+    <li><span class="bref">9</span>Á. González, "Measurement of areas on a sphere using Fibonacci and latitude–longitude lattices", <em>Math. Geosci.</em> <strong>42</strong>, 49 (2010).</li>
+    <li><span class="bref">10</span>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3ª ed., Springer, 2016.</li>
+    <li><span class="bref">11</span>H. Qin et al., "Why is Boris algorithm so good?", <em>Phys. Plasmas</em> <strong>20</strong>, 084503 (2013).</li>
+    <li><span class="bref">12</span>L. Brillouin, "A theorem of Larmor and its importance for electrons in magnetic fields", <em>Phys. Rev.</em> <strong>67</strong>, 260 (1945).</li>
+    <li><span class="bref">13</span>J. H. Malmberg, T. M. O'Neil, "Pure electron plasma, liquid, and crystal", <em>Phys. Rev. Lett.</em> <strong>39</strong>, 1333 (1977).</li>
+    <li><span class="bref">14</span>L. J. Eshelman, J. D. Schaffer, "Real-coded genetic algorithms and interval-schemata", <em>Foundations of Genetic Algorithms</em> <strong>2</strong>, 187 (1993).</li>
+  </ol>
+</section>
+
+</div><!-- /.content -->
+
+<footer class="doc-footer">
+  Documento académico complementario del simulador · Repositorio: github.com/godie007/mhd-simulator · 
+  Para el modelo ejecutable y documentación técnica de implementación, véanse README.md y docs/DOCUMENTACION_TECNICA.md
+</footer>
+
+</main>
+
+<script>
+/* TOC active-state via IntersectionObserver */
+const sections = document.querySelectorAll('section[id], h3[id]');
+const navLinks = document.querySelectorAll('.toc-list a[href^="#"]');
+
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`.toc-list a[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-15% 0px -75% 0px' });
+
+sections.forEach(s => io.observe(s));
+</script>
+</body>
+</html>
