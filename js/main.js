@@ -321,14 +321,14 @@ function updateLive() {
   if (g.attributes.position.updateRange) g.attributes.position.updateRange.count = np * 3;
   if (g.attributes.color.updateRange) g.attributes.color.updateRange.count = np * 3;
 
-  // colorear bobinas por corriente instantánea
+  // colorear bobinas por corriente instantánea (sutil)
   for (let i = 0; i < coilMeshes.length; i++) {
     const I = liveSim.currents[i] || 0;
-    const mag = Math.min(1, Math.abs(I) / 3);
+    const mag = Math.min(1, Math.abs(I) / 3) * 0.3; // reducir intensidad a 30%
     const mat = coilMeshes[i].material;
-    if (I >= 0) mat.emissive.setRGB(mag, mag * 0.25, 0); // rojo/naranja
-    else mat.emissive.setRGB(0, mag * 0.4, mag);          // azul
-    mat.color.setRGB(0.3 + 0.5 * mag, 0.3, 0.3 + 0.5 * (I < 0 ? mag : 0));
+    if (I >= 0) mat.emissive.setRGB(mag * 0.7, mag * 0.15, 0); // rojo/naranja muy tenue
+    else mat.emissive.setRGB(0, mag * 0.2, mag * 0.8);          // azul muy tenue
+    mat.color.setRGB(0.3 + 0.15 * mag, 0.3, 0.3 + 0.15 * (I < 0 ? mag : 0)); // cambios de color minimal
   }
 
   // métricas en vivo (radio medio ya acumulado en el bucle anterior)
