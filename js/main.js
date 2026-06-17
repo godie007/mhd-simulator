@@ -124,11 +124,17 @@ function buildLasers(sim) {
   laserGroup.clear();
   laserLines = [];
 
-  // láseres: haces desde el hueco entre 3 bobinas hacia el centro.
+  // láseres: haces desde la parte exterior de la esfera hacia el centro.
   // El AG enciende/apaga cada uno; el render refleja su estado en updateLive.
   for (const L of sim.lasers) {
+    // normalizar la posición del láser y llevarlo a la superficie exterior (como los cañones)
+    const dist = Math.hypot(L.pos[0], L.pos[1], L.pos[2]) || 1;
+    const nx = L.pos[0] / dist, ny = L.pos[1] / dist, nz = L.pos[2] / dist;
+    const outerDist = sim.cfg.R * 1.12; // mismo que los cañones
+    const laserStart = new THREE.Vector3(nx * outerDist, ny * outerDist, nz * outerDist);
+
     const geoL = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]),
+      laserStart,
       new THREE.Vector3(0, 0, 0),
     ]);
     const line = new THREE.Line(geoL, new THREE.LineBasicMaterial({
@@ -136,12 +142,12 @@ function buildLasers(sim) {
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     laserGroup.add(line);
-    // emisor en el hueco
+    // emisor en la superficie exterior
     const emit = new THREE.Mesh(
       new THREE.SphereGeometry(0.018, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xff5577 })
     );
-    emit.position.set(L.pos[0], L.pos[1], L.pos[2]);
+    emit.position.copy(laserStart);
     laserGroup.add(emit);
     laserLines.push({ line, emit });
   }
