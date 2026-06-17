@@ -1,0 +1,63 @@
+{
+  "rows": [
+    {
+      "lambda": 10,
+      "Neq": 149.9,
+      "tau_s": 14.99,
+      "injected": 6000,
+      "lost": 5852,
+      "escapeFraction": 0.9753
+    },
+    {
+      "lambda": 25,
+      "Neq": 373.6,
+      "tau_s": 14.95,
+      "injected": 15000,
+      "lost": 14619,
+      "escapeFraction": 0.9746
+    },
+    {
+      "lambda": 50,
+      "Neq": 751.1,
+      "tau_s": 15.02,
+      "injected": 30000,
+      "lost": 29261,
+      "escapeFraction": 0.9754
+    },
+    {
+      "lambda": 75,
+      "Neq": 1121.1,
+      "tau_s": 14.95,
+      "injected": 45000,
+      "lost": 43910,
+      "escapeFraction": 0.9758
+    },
+    {
+      "lambda": 100,
+      "Neq": 1490.8,
+      "tau_s": 14.91,
+      "injected": 60000,
+      "lost": 58484,
+      "escapeFraction": 0.9747
+    },
+    {
+      "lambda": 150,
+      "Neq": 2262.8,
+      "tau_s": 15.09,
+      "injected": 90000,
+      "lost": 87781,
+      "escapeFraction": 0.9753
+    },
+    {
+      "lambda": 200,
+      "Neq": 3009.3,
+      "tau_s": 15.05,
+      "injected": 120000,
+      "lost": 116977,
+      "escapeFraction": 0.9748
+    }
+  ],
+  "slope_tau_s": 15.032,
+  "r2": 0.99996,
+  "steps": 30000
+}

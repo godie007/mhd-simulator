@@ -79,11 +79,13 @@ numerical validation, results analysis, and a **detailed experimental roadmap**.
 4. Optimización mediante algoritmo genético
 5. Implementación computacional y validación numérica
 6. Resultados y análisis de escenarios
+6′. Reproducción computacional verificable del experimento (revisión 2026)
 7. De la simulación al experimento: diseño y realización
 8. Conclusiones y trabajo futuro
 - Apéndice A. Derivaciones
 - Apéndice B. Tabla maestra de parámetros
 - Apéndice C. Pseudocódigo
+- Apéndice D. Reproducibilidad del experimento (Cap. 6′)
 - Bibliografía
 
 ---
@@ -616,6 +618,331 @@ campo rotatorio de baja frecuencia, control PD activo).
 
 ---
 
+# Capítulo 6′. Reproducción computacional verificable del experimento (revisión 2026)
+
+> **Naturaleza de este capítulo.** Las tablas del Capítulo 6 (v1) eran
+> *ilustrativas*. Este capítulo las **sustituye** por una corrida íntegramente
+> reproducible: se ejecutó el **código de física del propio repositorio**
+> (`js/physics.js`, `js/ga.js`) sin modificarlo, mediante un *harness* headless en
+> Node.js, con semillas fijas. Todas las cifras y las seis figuras de aquí derivan
+> de esa corrida; el procedimiento exacto (archivos, comandos, semillas) está en el
+> **Apéndice D**, de modo que cualquier lector puede regenerar bit a bit estos
+> resultados. La regla rectora es la de Birdsall–Langdon [3] y la práctica estándar
+> en física computacional: **un resultado de simulación que no es reproducible no
+> es un resultado.**
+
+## 6′.1 Objetivo, alcance y una advertencia necesaria
+
+El objetivo es triple: (i) **reproducir** con el código real el régimen de cientos
+de electrones sostenidos; (ii) **explicar** el origen de esa cifra; y (iii)
+**delimitar** con rigor qué demuestra y qué *no* demuestra el experimento.
+
+La conclusión central, anticipada para que el lector la tenga presente al leer cada
+figura, es incómoda pero honesta:
+
+> **El número absoluto de electrones confinados NO es un observable físico de
+> densidad de plasma.** En este modelo de partícula independiente (sin carga
+> espacial), la población de equilibrio obedece $N_{\text{eq}}=\lambda\tau$ y escala
+> **linealmente y sin saturar** con la tasa de inyección $\lambda$ (§6′.7). El
+> "700" se alcanza simplemente eligiendo $\lambda$; lo que el experimento sí mide y
+> optimiza de forma significativa es el **tiempo de confinamiento $\tau$** y la
+> **estrategia de control** que lo maximiza.
+
+Esta distinción es la diferencia entre una afirmación defendible ante un tribunal y
+una que no lo es. Un plasma no neutro real **satura** en el límite de Brillouin
+[Brillouin 1945; Davidson 2001, ref. 6]: la repulsión coulombiana mutua impone una
+densidad máxima. Aquí no hay tal techo porque la física colectiva está ausente por
+construcción (véase §6′.8 y la limitación ya declarada en §9 de la documentación
+técnica). Reconocerlo no debilita el trabajo: lo reubica en su contribución real,
+que es de **control óptimo evolutivo de trayectorias de partículas cargadas**, no de
+física de plasmas densos.
+
+## 6′.2 Metodología paso a paso (corrida reproducible)
+
+**Configuración nominal** (idéntica a los valores por defecto de la interfaz,
+`main.js::readConfig`):
+
+| Parámetro | Valor | Origen |
+|---|---|---|
+| Bobinas $N$ | 12 (icosaedro), 6 pares antípodas | `getGeometry` (preset *auto*) |
+| Láseres $n_L$ | 12 (huecos de la triangulación) | `coilGaps` |
+| Genoma | $\lceil12/2\rceil+3+12=\mathbf{21}$ genes | `geneCount(12,12)` |
+| Tasa de inyección $\lambda$ | 10 part/s (nominal) | `injectionRate` |
+| Rapidez de inyección $v_0$ | $0.6\,\sqrt{P/2}=0.6$ (a 2 kW) | `readConfig` |
+| Paso $\Delta t$ | 0.02 | `readConfig` |
+| Población / generaciones | 40 / **150** | corrida |
+| $\kappa,\ \varepsilon,\ \sigma_{\text{mut}}$ | 2.5, 0.18, 0.18 | `readConfig` |
+| Semillas | `gaSeed=12345`, `seed=7` (corrida larga) | deterministas (mulberry32) |
+
+**Procedimiento** (cada paso ejecuta funciones del repositorio, sin alterarlas):
+
+1. **Evolución.** Se instancia `GA(config)` y se ejecutan 150 llamadas a
+   `stepGeneration()`, registrando media, mejor de la generación y mejor histórico
+   de la aptitud $\mathcal F$ (ec. 4.2). Coste $\mathcal O(G\cdot P\cdot T\cdot N(t)\cdot N_{\text{bob}})$.
+2. **Acumulación.** Con el **mejor genoma histórico** se instancia una `Simulation`
+   independiente y se itera `step($\Delta t$)` durante $3\times10^4$ pasos
+   (600 s simulados), muestreando $N(t)$, fugas y radio medio cada 50 pasos.
+3. **Barrido de $\lambda$** (§6′.7). Con ese **mismo** genoma fijo se repite la
+   acumulación para $\lambda\in\{10,25,50,75,100,150,200\}$ y se mide $N_{\text{eq}}$
+   y $\tau=N_{\text{eq}}/\lambda$.
+4. **Geometría e instantánea.** Se exportan posiciones de bobinas, pares, láseres y
+   los radios de la nube en equilibrio para las figuras estructurales.
+5. **Figuras.** Generadas con Matplotlib desde los `.json` de los pasos 1–4 (sin
+   datos sintéticos).
+
+La conservación de rapidez del empuje de Boris ($|\mathbf v|$ constante a
+$\sim10^{-15}$ relativo) ya fue verificada (§5.3) y es la garantía estructural del
+integrador, demostrada como rotación ortogonal en el Apéndice A.1; Qin *et al.*
+(2013) probaron además que el algoritmo de Boris es **conservador de volumen en el
+espacio de fases**, lo que explica su estabilidad a largo plazo en corridas como la
+de 600 s usada aquí.
+
+## 6′.3 Convergencia del algoritmo genético
+
+![Convergencia del AG](figuras/fig_convergencia.png)
+
+*Figura 6′.1 — Aptitud media, mejor de la generación y mejor histórico a lo largo de
+150 generaciones (datos reales, `convergence.json`).*
+
+El mejor histórico parte de $\mathcal F=0.842$ (gen. 0) y asciende a $\mathcal F=1.050$;
+la media poblacional pasa de 0.646 a $\approx0.90$. El salto cualitativo ocurre en
+las **primeras ~15 generaciones** (meseta sobre 1.00), con mejoras posteriores
+escalonadas y marginales —el perfil "escalera" característico del **elitismo** [7].
+La diversidad se mantiene (la media nunca colapsa sobre el mejor), señal de que la
+**mutación gaussiana** y el **cruce BLX-α** [Eshelman & Schaffer 1993] preservan
+exploración. La convergencia rápida y la meseta robusta indican un óptimo amplio,
+no un pico frágil: deseable para transferir la solución a hardware con tolerancias.
+
+## 6′.4 Régimen acumulativo y dinámica de llenado
+
+![Acumulación N(t)](figuras/fig_acumulacion.png)
+
+*Figura 6′.2 — Llenado desde cámara vacía hasta el equilibrio dinámico
+($\lambda=10$, 600 s). Azul: $N(t)$ medido. Verde: $N_{\text{eq}}$ medido. Rojo
+punteado: modelo de balance $\lambda\tau(1-e^{-t/\tau})$.*
+
+La cámara arranca **vacía** y la población crece hasta una **meseta de equilibrio**
+$N_{\text{eq}}\approx154$ electrones, alrededor de la cual fluctúa
+estadísticamente. La curva sigue el balance poblacional de primer orden
+
+$$\dot N=\lambda-\frac{N}{\tau}\ \Rightarrow\ N(t)=\lambda\tau\big(1-e^{-t/\tau}\big),\qquad N_{\text{eq}}=\lambda\tau, \tag{6′.1}$$
+
+idéntico a la cinética de un reactor con entrada constante y pérdida proporcional a
+la población (Apéndice A.2). El ajuste arroja $\tau\approx15.3$ s: cada electrón
+permanece confinado, en promedio, ~15 s antes de escapar (fracción acumulada de
+fuga del 97 %, coherente con un confinamiento real pero "con fugas", no una trampa
+hermética). **Importante:** $\tau$ —no el conteo— es la figura de mérito física,
+porque es la única magnitud invariante ante la elección de $\lambda$ (§6′.7).
+
+## 6′.5 Estructura espacial de la nube en equilibrio
+
+![Geometría](figuras/fig_geometria.png) 
+
+*Figura 6′.3 — Geometría real: 12 bobinas en vértices del icosaedro, 6 pares
+antípodas (mismo color comparten genes), 12 láseres en los huecos de la
+triangulación.*
+
+![Distribución radial](figuras/fig_distribucion_radial.png)
+
+*Figura 6′.4 — Histograma radial de la nube en equilibrio (143 electrones): radio
+medio $\bar r/R=0.608$, desviación $0.161$, ningún electrón en el borde.*
+
+La nube se organiza como una **capa esférica** centrada en $\bar r\approx0.61\,R$ y
+de grosor $\sigma_r\approx0.16\,R$ —ni colapsada en el centro ni difusa contra el
+borde—, exactamente el régimen que premia el término de distribución $\mathcal D$
+(ec. 4.5). La pared ($r=R$) está despoblada: las trayectorias que la alcanzan ya se
+han eliminado. La simetría icosaédrica de las bobinas (Fig. 6′.3) y la excitación
+**polifásica con desfase de 60° por par** producen un campo rotatorio cuya media
+temporal genera el pseudopotencial de confinamiento, en analogía directa con la
+trampa de Paul [W. Paul, *Rev. Mod. Phys.* 62, 1990, ref. 4].
+
+## 6′.6 El controlador descubierto y la física que revela
+
+![Genoma evolucionado](figuras/fig_genoma.png)
+
+*Figura 6′.5 — Parámetros del mejor controlador: amplitudes por par $A_g$,
+frecuencia común $f=3.07$, ganancias $k_p=-0.81$, $k_d=0.22$, **láseres ON = 0/12**.*
+
+Dos rasgos del óptimo son físicamente interpretables y **no fueron impuestos**:
+
+1. **Calentamiento nulo.** El AG **apagó los 12 láseres** ($0/12$; la v1 reportaba
+   $2/20$). Como el campo magnético solo rota la velocidad y conserva $|\mathbf v|$,
+   *toda* energía añadida por láser aumenta el radio de Larmor $r_L=mv_\perp/(qB)$ y,
+   por tanto, la probabilidad de fuga. La estrategia ganadora es **no calentar**: un
+   resultado contraintuitivo descubierto por la optimización, no por el diseñador.
+   Esto reordena la prioridad de ingeniería del Cap. 7 (los láseres de alta potencia
+   son innecesarios en una primera fase; valen solo como perturbación de estudio).
+2. **Control PD débil y mayormente derivativo.** $k_p=-0.81$ (restaurador suave
+   hacia el centro al crecer $\bar r$) y $k_d=0.22$ (amortiguamiento de la deriva
+   radial), sobre un campo oscilante de frecuencia $f\approx3.07$. El confinamiento
+   descansa en la **modulación polifásica** (pseudopotencial), con el PD como
+   regulación fina —no al revés.
+
+Este patrón "optimización que descubre física interpretable" es el mismo régimen de
+trabajo que Degrave *et al.* (*Nature* 602, 2022, ref. 8) emplearon para controlar
+plasmas de tokamak con aprendizaje por refuerzo: **optimizar fuera de línea sobre un
+modelo y transferir la política a hardware**. Es la justificación metodológica del
+Cap. 7.
+
+## 6′.7 ★ Hallazgo central: no hay límite de densidad — el "700" es limitado por inyección
+
+![Escalado con lambda](figuras/fig_escalado_lambda.png)
+
+*Figura 6′.6 — Barrido de la tasa de inyección con el **mismo** controlador. Azul:
+$N_{\text{eq}}$ medido. Rojo: ajuste $N_{\text{eq}}=\tau\lambda$ con $\tau=15.03$ s y
+$R^2=0.99996$. Verde: $\tau$ medido, **constante** ($\approx15$ s) en todo el rango.*
+
+| $\lambda$ (part/s) | $N_{\text{eq}}$ | $\tau$ (s) | fuga acumulada |
+|---:|---:|---:|---:|
+| 10  | 149.9  | 14.99 | 97.5 % |
+| 25  | 373.6  | 14.95 | 97.5 % |
+| 50  | 751.1  | 15.02 | 97.5 % |
+| 75  | 1121.1 | 14.95 | 97.6 % |
+| 100 | 1490.8 | 14.91 | 97.5 % |
+| 150 | 2262.8 | 15.09 | 97.5 % |
+| 200 | 3009.3 | 15.05 | 97.5 % |
+
+Los datos son inequívocos:
+
+- **$N_{\text{eq}}$ es exactamente lineal en $\lambda$** ($R^2=0.99996$) y **no
+  satura** ni a 3000 electrones.
+- **$\tau$ es invariante** ($14.9$–$15.1$ s, $\pm0.6\%$) y también lo es la fracción
+  de fuga ($97.5\%$): la dinámica de *cada* electrón no depende de cuántos otros haya.
+
+Esta es la **firma diagnóstica de un modelo de partícula independiente**. La razón
+es estructural: en `physics.js`, `fieldAt()` suma únicamente los dipolos de las
+bobinas y `step()` integra solo $\mathbf F=q\mathbf v\times\mathbf B$; **no existe el
+término coulombiano electrón–electrón**. Por tanto el objetivo "700 partículas" se
+satisface trivialmente: a $\lambda=50$ ya hay 751; el valor de la v1 (≈719)
+corresponde a $\lambda\approx47$ con este controlador. **El conteo mide el caudal de
+inyección, no una densidad confinada.**
+
+**Contraste con un plasma real.** En un plasma no neutro de verdad la repulsión
+mutua impone el **límite de Brillouin** [Brillouin, *Phys. Rev.* 67, 1945; Davidson,
+ref. 6]:
+
+$$n\le n_B=\frac{\varepsilon_0 B^2}{2m},$$
+
+y por encima de esa densidad el plasma se expande sin que añadir más carga aumente
+la población confinable. La curva de la Fig. 6′.6 que **no se dobla** es, literal y
+cuantitativamente, la evidencia de que aquí ese límite no opera. Malmberg & O'Neil
+(*Phys. Rev. Lett.* 39, 1977) demostraron experimentalmente que es precisamente esa
+física colectiva la que domina las trampas de electrones puras —la que este modelo
+omite.
+
+## 6′.8 ¿Es esto un plasma? Criterio de Debye
+
+Un conjunto de cargas se comporta como **plasma** —exhibe efectos colectivos— solo
+si el número de partículas dentro de una esfera de Debye es grande, $N_D\gg1$, y si
+la longitud de Debye $\lambda_D\ll L$ del sistema [F. F. Chen, ref. 10]. En este
+modelo $\lambda_D\to\infty$ formalmente (no hay apantallamiento porque no hay
+interacción), de modo que **$N_D$ no está definido** y el criterio de plasma **no se
+cumple por construcción**, sea cual sea el conteo. Es decir: 150 o 3000 "electrones"
+en esta simulación son 150 o 3000 *osciladores independientes en un campo común*, no
+un plasma. La transición a plasma real exige **añadir la interacción coulombiana**;
+ese experimento —antes "trabajo futuro"— se ejecuta y analiza en §6′.9, y **cambia
+cualitativamente el resultado**.
+
+## 6′.9 Validación del límite de densidad: experimento con carga espacial
+
+La crítica de §6′.7 hace una **predicción falsable**: el escalado lineal sin techo
+debe desaparecer en cuanto se introduzca la repulsión electrón–electrón, sustituido
+por una población **acotada** y una pérdida que crece con la densidad (límite de
+Brillouin [12; Davidson, ref. 6]). Aquí se pone a prueba.
+
+**Modelo extendido (no es la física del repo).** Se construyó un módulo aparte,
+`docs/experimento/physics_sc.mjs`, copia de `physics.js` con un único añadido: el
+**autocampo eléctrico** de la nube. La aceleración sobre cada electrón es la suma
+directa par a par (modelo *particle–particle*)
+
+$$\mathbf a_i=K\sum_{j\neq i}\frac{\mathbf r_i-\mathbf r_j}{\big(|\mathbf r_i-\mathbf r_j|^2+s^2\big)^{3/2}},\qquad s=0.03,$$
+
+incorporada al empuje de Boris como **dos medios impulsos eléctricos** que envuelven
+la rotación magnética (esquema E+B estándar [Birdsall–Langdon, ref. 3]; la simetría
+de Newton $\mathbf a_{ij}=-\mathbf a_{ji}$ conserva el momento). Con $K=0$ el módulo
+reproduce el repo bit a bit (control: $\lambda{=}50\Rightarrow N_{\text{eq}}{=}725$,
+sobre la recta). Se usó el **mismo controlador evolucionado** (sin re-optimizar) y se
+calibró $K=10^{-3}$ por barrido (régimen donde el autocampo compite con el campo
+magnético sin aplastar la nube dispersa).
+
+**Resultado.**
+
+![Carga espacial: límite de densidad](figuras/fig_carga_espacial.png)
+
+*Figura 6′.7 — Mismo controlador, mismo barrido, con autocampo $e^-\!-e^-$.
+Izquierda: $N_{\text{eq}}$ pasa de **lineal sin techo** (gris) a **sublineal y
+acotada** (rojo), ×5.2 de supresión a $\lambda=300$. Derecha: el tiempo de
+confinamiento efectivo **se desploma** de 15.5 s a 2.9 s al aumentar la densidad.*
+
+| $\lambda$ (part/s) | $N_{\text{eq}}$ (con carga) | lineal (sin) | $\tau$ efectivo (s) |
+|---:|---:|---:|---:|
+| 10  | 155 | 150  | 15.5 |
+| 25  | 324 | 376  | 12.9 |
+| 50  | 435 | 752  | 8.7 |
+| 100 | 544 | 1503 | 5.4 |
+| 200 | 713 | 3006 | 3.6 |
+| 300 | 868 | 4509 | **2.9** |
+
+La predicción se cumple **cuantitativamente**:
+
+- A baja densidad ($\lambda=10$) el resultado **coincide** con el modelo sin
+  autocampo ($155$ vs $150$): la carga espacial es despreciable cuando la nube es
+  dispersa, como exige el límite de Debye (§6′.8).
+- Al crecer $\lambda$, $N_{\text{eq}}$ se **separa de la recta** y crece de forma
+  **sublineal**: el sistema **se autolimita**. El conteo deja de ser un mando libre.
+- $\tau$ **decae monótonamente** (15.5 → 2.9 s): cuanto más densa la nube, **más
+  rápido se autoexpulsa**. Esta es la fenomenología esencial del límite de Brillouin
+  —la repulsión mutua fija una densidad máxima confinable—, ahora presente en el
+  modelo. El "700" ya **no es gratis**: requiere $\lambda\approx200$ y es una
+  población **limitada por física colectiva**, no por un grifo de inyección.
+
+**Honestidad sobre el alcance de este experimento.** Sigue sin ser un plasma
+cuantitativo: (i) $K$ es un acoplamiento **calibrado**, no $e^2/4\pi\varepsilon_0 m$
+en unidades SI —el resultado es **cualitativo** (la *forma* del escalado), no una
+densidad de Brillouin numérica; (ii) es un modelo **PP directo con suavizado**, no un
+PIC con malla ni un equilibrio de fluido frío (Davidson); (iii) el controlador **no
+se re-optimizó** bajo autocampo, así que estas cifras son una **cota inferior** de lo
+alcanzable —re-evolucionar el AG con carga espacial es el paso lógico siguiente
+(§8.3). Lo demostrado es lo esencial: **introducir la física colectiva convierte el
+escalado lineal sin techo en un régimen acotado y autolimitado**, exactamente como
+predice la teoría de plasmas no neutros.
+
+## 6′.10 Síntesis honesta: qué se demostró y qué no
+
+**Demostrado (resultado real y reproducible):**
+
+- ✅ Un AG con genoma de 21 parámetros **converge** de forma rápida y robusta
+  ($\mathcal F:0.84\to1.05$ en 150 generaciones) a un controlador que **maximiza el
+  tiempo de confinamiento** de partículas cargadas en un campo polifásico idealizado.
+- ✅ La población acumulada sigue **cuantitativamente** el balance $N_{\text{eq}}=\lambda\tau$,
+  con $\tau\approx15$ s reproducible y verificable.
+- ✅ La optimización **descubre física interpretable** (calentamiento nulo,
+  pseudopotencial polifásico, PD de regulación fina).
+- ✅ Un modelo extendido con **carga espacial** (§6′.9) confirma la predicción
+  crítica: al introducir la repulsión $e^-\!-e^-$, el escalado lineal sin techo se
+  convierte en **población acotada y autolimitada**, con $\tau$ colapsando con la
+  densidad —fenomenología del límite de Brillouin.
+- ✅ Toda la cadena es **reproducible bit a bit** (Apéndice D).
+
+**No demostrado (y no afirmable con este modelo):**
+
+- ❌ Que sea "experimentalmente posible confinar 700 electrones": en el modelo base
+  el 700 es un artefacto de $\lambda$; con carga espacial es una población limitada
+  por física colectiva, pero aún en unidades normalizadas (no es un plasma de
+  laboratorio).
+- ❌ Una **densidad de Brillouin en unidades SI**: §6′.9 captura la *forma*
+  cualitativa del límite con un acoplamiento calibrado, no el valor numérico
+  $n_B=\varepsilon_0B^2/2m$; eso exige PIC con autocampos y la calibración del Cap. 7.
+- ❌ Predicciones que requieran **colisiones, campo de espira real o relatividad**,
+  ausentes aún (§9, §8.2).
+
+La contribución se sostiene como **prueba de concepto de optimización evolutiva de
+control de confinamiento**, en la línea metodológica de Degrave *et al.* (2022), y
+como **gemelo digital de baja fidelidad** para diseñar el protocolo experimental del
+Cap. 7 —no como evidencia de viabilidad física de un plasma de 700 electrones.
+
+---
+
 # Capítulo 7. De la simulación al experimento: diseño y realización
 
 > Objetivo: convertir el modelo en un **experimento de trampa de electrones**.
@@ -751,8 +1078,14 @@ enclavamientos, zona controlada y cumplimiento normativo.
    físico con equilibrio $N_{\text{eq}}=\lambda\tau$ (3.12), confirmado
    numéricamente.
 3. El **AG optimiza** un objetivo multiobjetivo (retención+estabilidad+
-   distribución) y alcanza un régimen que **sostiene ≈ 719 electrones** (>600),
-   con convergencia rápida y robusta.
+   distribución) con convergencia rápida y robusta ($\mathcal F:0.84\to1.05$ en 150
+   generaciones, Cap. 6′). El régimen acumulativo alcanza cientos a miles de
+   electrones **según la tasa de inyección**: la población obedece
+   $N_{\text{eq}}=\lambda\tau$ con $\tau\approx15$ s **invariante** y escalado lineal
+   sin saturar ($R^2=0.99996$, §6′.7). **Matiz esencial:** ese conteo es
+   *limitado por inyección*, no por densidad —el observable físico significativo es
+   $\tau$, no $N$ (véase §6′.7–6′.9). El "objetivo de 700" es por tanto reproducible
+   pero **no constituye evidencia de un plasma confinado**.
 4. La optimización **descubre física**: minimiza el calentamiento láser para
    reducir el radio de Larmor y las pérdidas, un resultado interpretable.
 5. Se entrega una **hoja de ruta experimental** detallada con instrumentación,
@@ -760,16 +1093,22 @@ enclavamientos, zona controlada y cumplimiento normativo.
 
 ## 8.2 Limitaciones (ver §9 ampliado)
 
-Modelo sin colisiones, sin autocampos (carga espacial), sin radiación, no
-relativista, con bobinas idealizadas como dipolos puntuales y unidades
-normalizadas. Estas hipótesis acotan la validez al régimen de baja densidad y
-energía moderada.
+El modelo **base** (repo) es sin colisiones, sin autocampos, sin radiación, no
+relativista, con bobinas idealizadas como dipolos puntuales y unidades normalizadas.
+El Cap. 6′ levanta **una** de estas hipótesis —la carga espacial— en un módulo
+extendido *particle–particle* (§6′.9), suficiente para exhibir el límite de densidad
+de forma **cualitativa** pero no para predicciones en SI. Las demás simplificaciones
+acotan la validez al régimen de baja densidad y energía moderada.
 
 ## 8.3 Trabajo futuro
 
-- **Modelo cinético/PIC** con autocampos (límite de Brillouin) y colisiones.
+- **Re-optimizar el AG bajo carga espacial** (§6′.9): el controlador actual se
+  evolucionó sin autocampo, por lo que sus cifras con repulsión son una cota
+  inferior; re-evolucionar debería recuperar parte de la población perdida.
+- **Modelo cinético/PIC** con autocampos en malla y calibración a la **densidad de
+  Brillouin en SI**, superando el modelo PP directo con suavizado.
 - **Campo de espira realista** (Biot–Savart sobre el bobinado) en lugar de dipolo.
-- **Corrección relativista** del empuje de Boris para energías altas.
+- **Corrección relativista** del empuje de Boris para energías altas; **colisiones**.
 - **Control en línea por aprendizaje por refuerzo** sobre el gemelo digital.
 - **Construcción de la Fase I** y comparación experimento–simulación.
 
@@ -798,8 +1137,8 @@ forma usada en (3.5) con regularización $\varepsilon$. ∎
 | $R$ | radio de cavidad | 1 |
 | $N$ | nº de bobinas | 12 (icosaedro) |
 | $n_g$ | nº de pares | 6 |
-| $n_L$ | nº de láseres | 20 |
-| $\lambda$ | tasa de inyección | 75 |
+| $n_L$ | nº de láseres | 12 (huecos, config Cap. 6′) |
+| $\lambda$ | tasa de inyección | 10 nominal; barrido 10–200 (§6′.7) |
 | $\Delta t$ | paso temporal | 0.02 |
 | $\kappa$ | acoplamiento de campo | 2.5 |
 | $\varepsilon$ | suavizado | $\max(0.18,0.28 d_{NN})$ |
@@ -807,7 +1146,10 @@ forma usada en (3.5) con regularización $\varepsilon$. ∎
 | $v_{\max}$ | tope de calentamiento | $2.6 v_0$ |
 | $f$ | frecuencia común | gen del AG $\in[0,4]$ |
 | $\varphi_g$ | desfase polifásico | $g\cdot 60°$ |
-| Población / generaciones | AG | 48 / 36 |
+| Población / generaciones | AG | 40 / 150 (Cap. 6′) |
+
+> Nota: las cifras nominales de la v1 ($n_L=20$, $\lambda=75$, AG 48/36) eran
+> ilustrativas; la tabla refleja la **configuración reproducible** del Cap. 6′.
 
 # Apéndice C. Pseudocódigo del bucle de simulación
 
@@ -824,6 +1166,83 @@ Simulation.step(Δt):
     inyectar ⌊λ·Δt + acumulador⌋ partículas nuevas desde cañones       (3.7.1)
     acumular métricas de aptitud                                        (4.3-4.5)
 ```
+
+# Apéndice D. Reproducibilidad del experimento (Cap. 6′)
+
+Toda la corrida del Capítulo 6′ se generó con un *harness* headless que importa el
+código de física del repositorio **sin modificarlo**. Para regenerar bit a bit:
+
+**Entorno**
+
+```bash
+node --version        # probado en v22
+mkdir -p /tmp/dodeca-exp/js
+cp js/physics.js js/ga.js /tmp/dodeca-exp/js/
+printf '{"type":"module"}' > /tmp/dodeca-exp/package.json
+python3 -m venv /tmp/dodeca-exp/venv
+/tmp/dodeca-exp/venv/bin/pip install matplotlib numpy
+```
+
+**Semillas y configuración** — deterministas (RNG mulberry32): `gaSeed=12345`
+(evolución), `seed=7` (corridas de acumulación). Configuración = valores por defecto
+de `main.js::readConfig` (tabla §6′.2). `mutationSigma=0.18`.
+
+**Scripts del harness** (en `/tmp/dodeca-exp/`):
+
+| Script | Qué hace | Salida |
+|---|---|---|
+| `runner.mjs` | 150 generaciones de `GA` + acumulación de $3\times10^4$ pasos con el mejor genoma | `convergence.json`, `timeseries.json`, `summary.json` |
+| `sweep.mjs` | Barrido $\lambda\in\{10,25,50,75,100,150,200\}$ con el genoma fijo; ajuste $N_{\text{eq}}=\tau\lambda$ | `sweep.json` |
+| `geomexport.mjs` | Geometría real + instantánea radial de la nube en equilibrio | `geom.json` |
+| `plot.py` | Genera las 6 figuras de `docs/figuras/` desde los `.json` | `fig_*.png` |
+
+**Ejecución**
+
+```bash
+cd /tmp/dodeca-exp
+GENS=150 LONG_STEPS=30000 node runner.mjs
+node sweep.mjs
+node geomexport.mjs
+venv/bin/python plot.py     # escribe en docs/figuras/
+```
+
+**Resultados de referencia** (la corrida debe reproducir):
+
+| Magnitud | Valor |
+|---|---|
+| Aptitud: gen 0 → mejor histórico final | 0.842 → 1.050 |
+| Mejor genoma (extracto) | $f=3.073$, $k_p=-0.807$, $k_d=0.223$ |
+| Láseres encendidos en el óptimo | **0 / 12** |
+| $N_{\text{eq}}$ a $\lambda=10$ | 153.5 (confinadas 149.2) |
+| $\tau$ (ajuste del barrido) | 15.03 s |
+| Ajuste $N_{\text{eq}}=\tau\lambda$ | $R^2=0.99996$ |
+| Nube en equilibrio | $\bar r/R=0.608$, $\sigma_r/R=0.161$ |
+
+**Verificación cruzada con la teoría:** los valores medidos satisfacen (6′.1) y
+(3.12); la invariancia de $\tau$ frente a $\lambda$ confirma la ausencia de
+acoplamiento entre partículas (§6′.7–6′.8).
+
+**Experimento de carga espacial (§6′.9).** Módulo y scripts adicionales:
+
+| Archivo | Rol |
+|---|---|
+| `physics_sc.mjs` | Copia de `physics.js` + autocampo coulombiano (`coulombK`, `coulombSoft`); `coulombK=0` reproduce el repo. |
+| `calib_sc.mjs` | Calibración del acoplamiento $K$ (escaneo a $\lambda=100$). |
+| `sweep_sc.mjs` | Barrido $\lambda\in\{10,\dots,300\}$ con autocampo. |
+| `plot_sc.py` | Figura comparativa `fig_carga_espacial.png`. |
+
+```bash
+cp docs/experimento/physics_sc.mjs /tmp/dodeca-exp/js/
+cp docs/experimento/{calib_sc,sweep_sc}.mjs /tmp/dodeca-exp/
+cd /tmp/dodeca-exp
+node calib_sc.mjs                       # calibra K (~11 min: O(n^2))
+K=1e-3 SOFT=0.03 STEPS=12000 node sweep_sc.mjs
+venv/bin/python /ruta/al/repo/docs/experimento/plot_sc.py
+```
+
+Referencia ($K=10^{-3}$): control $K{=}0,\lambda{=}50\Rightarrow N_{\text{eq}}{=}725$
+(lineal); con autocampo $\lambda{=}300\Rightarrow N_{\text{eq}}{=}868$ (lineal sería
+4509, **×5.2** de supresión) y $\tau$ cae de 15.5 s a 2.9 s.
 
 ---
 
@@ -847,6 +1266,16 @@ Simulation.step(Δt):
    latitude–longitude lattices", *Math. Geosci.* **42**, 49 (2010).
 10. F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
     3ª ed., Springer, 2016.
+11. H. Qin et al., "Why is Boris algorithm so good?", *Phys. Plasmas* **20**,
+    084503 (2013) — conservación de volumen en el espacio de fases.
+12. L. Brillouin, "A theorem of Larmor and its importance for electrons in
+    magnetic fields", *Phys. Rev.* **67**, 260 (1945) — límite de densidad.
+13. J. H. Malmberg, T. M. O'Neil, "Pure electron plasma, liquid, and crystal",
+    *Phys. Rev. Lett.* **39**, 1333 (1977) — efectos colectivos en trampas de
+    electrones puras.
+14. L. J. Eshelman, J. D. Schaffer, "Real-coded genetic algorithms and
+    interval-schemata", *Foundations of Genetic Algorithms* **2**, 187 (1993) —
+    cruce BLX-α.
 
 ---
 

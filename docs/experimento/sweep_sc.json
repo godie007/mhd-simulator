@@ -1,0 +1,55 @@
+{
+  "coulombK": 0.001,
+  "soft": 0.03,
+  "steps": 12000,
+  "rows": [
+    {
+      "lambda": 10,
+      "Neq": 155,
+      "tau_s": 15.5,
+      "linear": 150
+    },
+    {
+      "lambda": 25,
+      "Neq": 323.6,
+      "tau_s": 12.94,
+      "linear": 376
+    },
+    {
+      "lambda": 50,
+      "Neq": 435.3,
+      "tau_s": 8.71,
+      "linear": 752
+    },
+    {
+      "lambda": 75,
+      "Neq": 483.6,
+      "tau_s": 6.45,
+      "linear": 1127
+    },
+    {
+      "lambda": 100,
+      "Neq": 544.3,
+      "tau_s": 5.44,
+      "linear": 1503
+    },
+    {
+      "lambda": 150,
+      "Neq": 630.9,
+      "tau_s": 4.21,
+      "linear": 2255
+    },
+    {
+      "lambda": 200,
+      "Neq": 713.3,
+      "tau_s": 3.57,
+      "linear": 3006
+    },
+    {
+      "lambda": 300,
+      "Neq": 867.8,
+      "tau_s": 2.89,
+      "linear": 4509
+    }
+  ]
+}
