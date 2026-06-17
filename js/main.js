@@ -226,50 +226,11 @@ function buildScene(sim) {
   );
   group.add(center);
 
-  // contador 3D de partículas confinadas (sprite que mira a la cámara)
-  buildCounter();
-  group.add(counter.sprite);
 }
 
-// ----------------------------------------------------------------------------
-// Contador 3D dentro de la esfera (textura en canvas sobre un sprite)
-// ----------------------------------------------------------------------------
-let counter = null;
-function buildCounter() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  const mat = new THREE.SpriteMaterial({
-    map: texture, transparent: true, depthTest: false, depthWrite: false,
-  });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.8, 0.4, 1);
-  // sobre la esfera, en el eje de rotación (queda fijo y no tapa la figura)
-  sprite.position.set(0, 1.5, 0);
-  sprite.renderOrder = 999;
-  counter = { canvas, ctx, texture, sprite };
-}
-
-function drawCounter(confined) {
-  if (!counter) return;
-  if (counter.last === confined) return; // sin cambios
-  counter.last = confined;
-  const { ctx, canvas, texture } = counter;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.textAlign = 'center';
-  // número grande = partículas que quedan en confinamiento
-  ctx.fillStyle = '#66e0ff';
-  ctx.shadowColor = '#0a1a2a'; ctx.shadowBlur = 8;
-  ctx.font = 'bold 72px -apple-system, Segoe UI, sans-serif';
-  ctx.fillText(String(confined), canvas.width / 2, 70);
-  // etiqueta
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#9fb0c8';
-  ctx.font = '22px -apple-system, Segoe UI, sans-serif';
-  ctx.fillText('en confinamiento', canvas.width / 2, 104);
-  texture.needsUpdate = true;
+// Actualizar contador de confinamiento en el HUD superior
+function updateConfinedCount(confined) {
+  document.getElementById('confinedCount').textContent = String(confined);
 }
 
 // ----------------------------------------------------------------------------
@@ -340,7 +301,7 @@ function updateLive() {
   // métricas en vivo (radio medio ya acumulado en el bucle anterior)
   document.getElementById('liveInside').textContent = `${np}`;
   document.getElementById('liveRadius').textContent = np ? (sumR / np / Rb).toFixed(3) : '—';
-  drawCounter(np); // total acumulado en confinamiento (acumulación ilimitada)
+  updateConfinedCount(np); // total acumulado en confinamiento (acumulación ilimitada)
   const onCount = liveSim.lasersOnCount ? liveSim.lasersOnCount() : 0;
   document.getElementById('liveLasers').textContent = `${onCount}/${liveSim.lasers.length}`;
 
